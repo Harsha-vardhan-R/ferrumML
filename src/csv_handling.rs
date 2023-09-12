@@ -9,6 +9,7 @@ use rand::seq::SliceRandom;
 //use std::mem::ManuallyDrop;
 
 
+
 #[derive(Debug, Clone)]
 pub enum data_type {
     Strings(Vec<String>),
@@ -50,6 +51,25 @@ impl length for data_type {
     }
 }
 
+pub trait print_at_index {
+    fn print_at(&self , index : usize) -> ();
+}
+
+impl print_at_index for data_type {
+    fn print_at(&self , index : usize) -> () {
+        match &self {
+            data_type::Strings(temp) => {
+                print!("{:?}   :  ",temp[index]);
+            },
+            data_type::Floats(temp) => {
+                print!("{:?}   :  ",temp[index]);
+            },
+            data_type::Category(temp) => {
+                print!("{:?}   :  ",temp[index]);
+            },
+        }
+    }
+}
 
 pub struct data_frame {
     data: Vec<data_type>,

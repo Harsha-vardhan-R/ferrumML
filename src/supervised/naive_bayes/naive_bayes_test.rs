@@ -18,13 +18,14 @@ fn test_sample() {
 
     //data.head();
 
-    data.normalize();
+    //data.normalize();
  
     let h = data.train_test_split(0.5, data.get_target_index("species").unwrap() , true);
 
     let mut hava = gaussian_NB();
 
     hava.fit(&h.0, &h.1); 
+    //hava.get_gaussian_vector();
 
     dbg!(accuracy_score(&hava, &h.2, &h.3));
 

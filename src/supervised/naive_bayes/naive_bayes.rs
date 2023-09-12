@@ -1,7 +1,7 @@
 use core::panic;
 use std::collections::HashMap;
 use rayon::prelude::{IntoParallelRefIterator, IndexedParallelIterator, ParallelIterator};
-use crate::csv_handling::{data_frame, data_type , return_type};
+use crate::csv_handling::{data_frame, data_type , return_type, print_at_index};
 
 #[derive(Debug)]
 pub struct gaussian_NB {
@@ -59,7 +59,7 @@ impl MLalgo for gaussian_NB {
                 }
             }
 
-            for i in 0..counter.len() {
+            for i in 0..distribution_count.len() {
                 let number = distribution_count[i];
                 let number_sqrt = number.sqrt();
 
@@ -74,10 +74,18 @@ impl MLalgo for gaussian_NB {
                 }
             }
 
+
+            //iterating over a hashmap is the dumbest idea i ever had , it is not fucking folling the order , fuck you chatGPT.
+            let mut in_order_keys: Vec<u8> = vec![0 ; counter.len()];
+                for (k , v) in &counter {
+                    in_order_keys[*v] = *k;
+                }
+
             self.means_and_std_devs = output_main;
-            self.target_classes = Some(data_type::Category(counter.keys().cloned().collect()));
+            self.target_classes = Some(data_type::Category(in_order_keys));
             self.total_number_of_cases = X_train.len().try_into().unwrap();
             self.target_class_distributions = distribution_count.iter().map(|x| *x as usize).collect();
+
             return;
 
         }
@@ -107,7 +115,7 @@ impl MLalgo for gaussian_NB {
                     }
                 }
 
-                for (_ , &i) in counter.iter() {
+                for i in 0..distribution_count.len() {
                     let number = distribution_count[i];
                     let number_sqrt = number.sqrt();
                     for j in 0..X_train[0].len() {
@@ -122,15 +130,15 @@ impl MLalgo for gaussian_NB {
                 }
 
                 let mut in_order_keys: Vec<String> = vec![String::new() ; counter.len()];
-                for (k , v) in counter {
-                    in_order_keys[v] = k;
+                for (k , v) in &counter {
+                    in_order_keys[*v] = k.to_owned();
                 }
-
     
                 self.means_and_std_devs = output_main;
                 self.target_classes = Some(data_type::Strings(in_order_keys));
                 self.total_number_of_cases = X_train.len().try_into().unwrap();
-                self.target_class_distributions = distribution_count.iter().map(|x| *x as usize).collect();
+                self.target_class_distributions = distribution_count.iter().map(|x| *x as usize).collect();            
+            
                 return;
 
         }
@@ -172,6 +180,21 @@ impl predict for gaussian_NB {
         
     }
 
+}
+
+impl gaussian_NB {
+    
+    pub fn get_gaussian_vector(&self) {
+        let mut counter = 0_usize;
+        for class in &self.means_and_std_devs {
+            self.target_classes.as_ref().unwrap().print_at(counter);
+            for ele in class {
+                print!("( {} , {} ) , " , ele.0 , ele.1);
+            }
+            println!();
+        }
+        counter += 1;
+    }
 }
 
 fn gaussian_distribution(mean : f32 , sigma : f32 , x : f32) -> f32 {
