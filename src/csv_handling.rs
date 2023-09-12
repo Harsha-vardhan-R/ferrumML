@@ -1,5 +1,4 @@
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case, non_camel_case_types, unused_mut, unused_imports)]
+#![allow(non_camel_case_types, non_snake_case, non_camel_case_types, unused_mut, unused_imports)]
 
 use std::{error::Error, fs::File, io::BufReader};
 use csv::ReaderBuilder;
@@ -23,6 +22,33 @@ pub enum return_type {
     Floats(f32),
     Category(u8),
 }
+
+//will return the length of the vector wrapped inside of data_type
+pub trait length {
+    fn len(&self) -> usize ;
+}
+
+impl PartialEq for return_type {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (return_type::Strings(s1), return_type::Strings(s2)) => s1 == s2,
+            (return_type::Floats(f1), return_type::Floats(f2)) => f1 == f2,
+            (return_type::Category(c1), return_type::Category(c2)) => c1 == c2,
+            _ => false, // Handle other cases or mismatched variants
+        }
+    }
+}
+
+impl length for data_type {
+    fn len(&self) -> usize {
+        match self {
+            data_type::Category(temp) => temp.len(),
+            data_type::Floats(temp) => temp.len(),
+            data_type::Strings(temp) => temp.len(),
+        }
+    }
+}
+
 
 pub struct data_frame {
     data: Vec<data_type>,
@@ -233,6 +259,7 @@ pub fn read_csv(file_path : &str , header : bool , category : bool) -> Result<da
     }
 
 
+//creates and returns vectors, boilerplate.
 fn return_vector(data_type : &Vec<u8> , size : usize , max_min : u8) -> Vec<f32> {
 
     let mut new_vec = if max_min == 0 {
@@ -251,6 +278,7 @@ fn return_vector(data_type : &Vec<u8> , size : usize , max_min : u8) -> Vec<f32>
 
 }
 
+//functions like normalize and feature and sample point manipulation.
 impl data_frame {
 
     pub fn head(&self) {
@@ -586,10 +614,11 @@ impl data_frame {
     } 
  
     /// WARNING - if you want to take out the rows fom 2 to 7 for example, then you need to 
-    /// pretty inefficient.
+    
     /// remove from the back so that we do not change the index of the next rows and drop ows that we need.
     /// also if this point contains min or max values then we are pretty much fucked up, be careful use this only in cases of emergency.
     /// and also the 0 index here refers to the first row , and not the headers.
+    /// pretty inefficient.
     pub fn remove_row(&mut self, index : usize) {
         //removing the value at that row in every column.
         self.data.par_iter_mut().for_each(|i|
@@ -678,7 +707,6 @@ impl data_frame {
         let mut type_of_data = vec![];
         let mut number_of_null = vec![0_u32 ; self.number_of_features.try_into().unwrap()];
 
-
         for (i , column) in self.data.iter().enumerate() {
             match column {
                 data_type::Category(temp) => {
@@ -687,15 +715,14 @@ impl data_frame {
                 },
                 data_type::Floats(temp) => {
                     type_of_data.push(0);
-                    let mut num_of_null = 0_u32;
-                    temp.iter().map(|x| if *x == f32::NAN {num_of_null += 1});
-                    number_of_null[i] = num_of_null;
+                    let num_of_null = temp.iter().filter(|x| x.is_nan()).count();
+                    number_of_null[i] = num_of_null.try_into().unwrap();
                 },
                 data_type::Strings(temp) => {
                     type_of_data.push(1);
                     let mut num_of_null = 0_u32;
                     for i in temp.iter() {
-                        if i == "null" || i == "NULL" || i == "None" {
+                        if i == "null" || i == "NULL" || i == "None" || i == "" {
                             num_of_null+=1;
                         }
                     }
@@ -716,9 +743,62 @@ impl data_frame {
         }
     }
 
+
+}
+
+//interpolation functions
+impl data_frame {
+
+    ///interpolates all the missing or nan values.
+    /// presently there is only one type , need to implement more types.
+    /// dumbfill - fills the empty based on the nearest non nan or node value.
+    pub fn interpolate_all(&mut self, method : &str) {
+        match method {
+            "dumbfill" => self.interpolate_dumbfill(),
+            _ => panic!("The given name does not match with any interpolation methods."),
+        }
+    }
+
+    fn interpolate_dumbfill(&mut self) {
+        println!("Warning! If you have nan or none in the first row of your feature then you need to manually change it for this to work.-'dumbfill'");
+
+        self.data.iter_mut().for_each(|column|
+            match column {
+                data_type::Strings(temp) => {
+                    let mut last_non_none = temp[0].clone();
+                    for (i , point) in temp.iter_mut().enumerate() {
+                        if point == "null" || point == "None" || point == "" || point == "none" {
+                            *point = last_non_none.to_string();
+                        } else {
+                            last_non_none = point.to_string();
+                        }
+                    }
+                },
+                data_type::Floats(temp) => {
+                    let mut last_non_none = temp[0];
+                    for (i , point) in temp.iter_mut().enumerate() {
+                        if point.is_nan() {
+                            *point = last_non_none;
+                        } else {
+                            last_non_none = *point;
+                        }
+                    }
+                },
+                data_type::Category(temp) => {
+                    //this category generally does not have nan or nulls.
+                    panic!("program breaking bug found here.");
+                },
+            }
+        );
+    }
+
+}
+
+//train test splitter
+impl data_frame {
     ///this method creates a completely new vector which all the ml algos will use so using this function will be always required even for unsupervised or neural network learning.
     //target index is the index you want as the target variable.
-    //shuffle randomly shuffles the data points.
+    //shuffle -> shuffle randomly shuffles the data points, still no random seed option.
     //after this function , we definetely know that the training is going to be on a vec<vec<f32>> and the target is going to be a data_type.
     pub fn train_test_split(&self , test_size : f32 , target_index : usize , shuffle : bool ) -> (Vec<Vec<f32>> , data_type , Vec<Vec<f32>> , data_type) {
 
@@ -811,4 +891,11 @@ impl data_frame {
 
     } 
 
+}
+
+//Todo.
+impl data_frame {
+    //replace a value with another value.
+    //replace a value witch meets certain conditions with an other value like a formula.
+    //creating new data columns by adding values of other two columns.--will be helpful once we implemented the heatmaps for the relation between two heatmaps.
 }

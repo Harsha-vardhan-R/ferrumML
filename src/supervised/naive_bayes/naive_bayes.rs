@@ -3,10 +3,6 @@ use std::collections::HashMap;
 use rayon::prelude::{IntoParallelRefIterator, IndexedParallelIterator, ParallelIterator};
 use crate::csv_handling::{data_frame, data_type , return_type};
 
-/* pub fn gaussian_distribution(mean : f32 , sigma : f32 , x : f32) -> f32 {
-    return ((0.3989422_f32/sigma)*(2.71828182_f32.powf(-0.5_f32 * ((x - mean) / sigma).powf(2.0))));
-} */
-
 #[derive(Debug)]
 pub struct gaussian_NB {
     target_classes: Option<data_type>,//we store all the unique target classes , order sensitive. we are going to follow the same order for storing the other parameters.
@@ -24,11 +20,22 @@ pub fn gaussian_NB() -> gaussian_NB {
     }
 }
 
-impl gaussian_NB {
+pub trait MLalgo {
+    fn fit(&mut self, X_train : &Vec<Vec<f32>> , y_train : &data_type);
+}
+
+pub trait predict {
+    fn predict(&self, point : &Vec<f32>) -> return_type;
+}
+
+impl MLalgo for gaussian_NB {
     
-    pub fn fit(&mut self, X_train : &Vec<Vec<f32>> , y_train : &data_type) {        
-        
+    fn fit(&mut self, X_train : &Vec<Vec<f32>> , y_train : &data_type) {   
+
+        //dbg!(y_train); 
+
         if let data_type::Category(temp) = y_train {
+            
             //creating a hashmap and giving a index to each different category, we may sometimes have the same value for all key value pairs , but it is not worth the risk.
             let mut counter: HashMap<u8, usize> = HashMap::new();
             let mut count = 0_usize;
@@ -125,22 +132,29 @@ impl gaussian_NB {
 
         }
 
-        panic!("You cannot train this algo with float as a target!");
+        panic!("You cannot train gaussian_NB with float as a target, if it is a !");
     
     }
 
-    pub fn predict(&self, point : Vec<f32>) -> return_type {
+}
+
+impl predict for gaussian_NB {
+
+    fn predict(&self, point : &Vec<f32>) -> return_type {
         //first we are going to calculate the numerator of the posterior for all the class types.
+
+        
         let mut present_max = (f32::MIN , -1_i32);//-1 to not have any bugs.
 
-        for i in &self.target_class_distributions {
+        for i in 0..self.target_class_distributions.len() {
             let mut product_of_conditional = 1.0_f32;
             for j in 0..self.means_and_std_devs[0].len() {
-                product_of_conditional *= Self::gaussian_distribution(self.means_and_std_devs[*i][j].0 , self.means_and_std_devs[*i][j].1, point[j]);
+                product_of_conditional *= gaussian_distribution(self.means_and_std_devs[i][j].0 , self.means_and_std_devs[i][j].1, point[j]);
             }
-            if (present_max.0 < (product_of_conditional * self.target_class_distributions[*i] as f32 / self.total_number_of_cases as f32)) {
-                present_max = ((product_of_conditional * self.target_class_distributions[*i] as f32 / self.total_number_of_cases as f32) , *i as i32 );
+            if (present_max.0 < (product_of_conditional * self.target_class_distributions[i] as f32)) {
+                present_max = (product_of_conditional * self.target_class_distributions[i] as f32 , i as i32 );
             }
+            //dbg!(&present_max);
         }
 
         match self.target_classes.as_ref().unwrap() {
@@ -152,14 +166,13 @@ impl gaussian_NB {
             },
             _ => panic!("No fucking way this reached here"),
         }
-
         
     }
 
-    fn gaussian_distribution(mean : f32 , sigma : f32 , x : f32) -> f32 {
-        return ((0.3989422_f32/sigma)*(2.71828182_f32.powf(-0.5_f32 * ((x - mean) / sigma).powf(2.0))));
-    }
+}
 
+fn gaussian_distribution(mean : f32 , sigma : f32 , x : f32) -> f32 {
+    return ((0.3989422_f32/sigma)*(2.71828182_f32.powf(-0.5_f32 * ((x - mean) / sigma).powf(2.0))));
 }
 
 

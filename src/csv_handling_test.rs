@@ -18,7 +18,7 @@ fn opening_df() {
 
     data.describe_the("7x3", true);
 
-    //data.head(); 
+    //data.null_stats(); 
 
     //data.print_headers();
 
@@ -31,7 +31,7 @@ fn opening_df() {
 fn opening_df_2() {
     let start_time = time::Instant::now();
 
-    let mut data = read_csv("src/wine-clustering.csv", true , false).unwrap();
+    let mut data = read_csv("wine.csv", true , false).unwrap();
     //data.print_headers();
     //data.head();
     data.head();
@@ -49,11 +49,13 @@ fn opening_df_2() {
         } */
     }
 
+    data.null_stats();
+
     print!("{:?}", start_time.elapsed());
 }
 
 
-#[test] 
+#[test]
 
 
 fn opening_df_3() {
