@@ -1,7 +1,7 @@
 use crate::{csv_handling::{data_type, return_type, length}, supervised::naive_bayes::naive_bayes::predict};
 
 //model needs to contain the trait predict for this.
-pub fn accuracy_score<T : predict>(model : T, X_test: &Vec<Vec<f32>> , y_test: &data_type) -> f32 {
+pub fn accuracy_score<T : predict>(model : &T, X_test: &Vec<Vec<f32>> , y_test: &data_type) -> f32 {
     
     let mut correct = 0;
 
@@ -28,9 +28,12 @@ pub fn accuracy_score<T : predict>(model : T, X_test: &Vec<Vec<f32>> , y_test: &
                 if model.predict(point) == return_type::Strings(temp[i].clone()) {
                     correct += 1;
                 }
+                //println!("predicted : {:?} , actual : {:?}" , &model.predict(point) , &return_type::Strings(temp[i].clone()));
             }
         }
     }
+
+    println!("Total test size : {} , guessed correctly : {}" , X_test.len() , correct);
 
     correct as f32 / X_test.len() as f32
 

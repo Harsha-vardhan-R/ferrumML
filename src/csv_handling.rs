@@ -16,6 +16,7 @@ pub enum data_type {
     Category(Vec<u8>),//even if we have only bools or 0 and 1 values a vector of bools will take same amount of space in the memory as of a vector with u8 numbers.
 }
 
+#[derive(Debug)]
 //this is used while returning from a predict function.
 pub enum return_type {
     Strings(String),
@@ -693,15 +694,8 @@ impl data_frame {
         (self.number_of_samples, self.number_of_features)
     }
 
-    //get the index at which the label is located in the data set.
-    pub fn get_target_index(&self , target_label : &str) -> Option<usize> {
-        for (i , label) in self.headers.iter().enumerate() {
-            if target_label == label {
-                return Some(i);
-            }
-        }
-        return None;
-    }
+    
+    
 
     pub fn null_stats(&self) {
         let mut type_of_data = vec![];
@@ -796,6 +790,16 @@ impl data_frame {
 
 //train test splitter
 impl data_frame {
+    ///get the index at which the label is located in the data set.
+    pub fn get_target_index(&self , target_label : &str) -> Option<usize> {
+        for (i , label) in self.headers.iter().enumerate() {
+            if target_label == label {
+                return Some(i);
+            }
+        }
+        return None;
+    }
+
     ///this method creates a completely new vector which all the ml algos will use so using this function will be always required even for unsupervised or neural network learning.
     //target index is the index you want as the target variable.
     //shuffle -> shuffle randomly shuffles the data points, still no random seed option.
@@ -805,7 +809,7 @@ impl data_frame {
         let test_length = (test_size * self.number_of_samples as f32) as usize;
         let train_length = self.number_of_samples as usize - test_length;
 
-        dbg!(train_length , test_length);
+        println!("test_length : {} , train_length : {}" , test_length , train_length);
 
         let sample_number = self.number_of_samples as usize;
         let feature_number = self.number_of_features as u32 as usize;//we are going to remove the extra target column afterwards.

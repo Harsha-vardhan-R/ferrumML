@@ -93,6 +93,7 @@ impl MLalgo for gaussian_NB {
                     }
                 }
 
+                //dbg!(&counter);
                 //the vector first stores the sum and squares sum for each class for each feature.
                 let mut output_main = vec![vec![(0.0_f32 , 0.0_f32) ; X_train[0].len()] ; counter.len()];
                 let mut distribution_count = vec![0.0_f32 ; counter.len()];
@@ -104,15 +105,11 @@ impl MLalgo for gaussian_NB {
                         output_main[*index][j].0 += *element;
                         output_main[*index][j].1 += element.powf(2.0);
                     }
-                    
                 }
 
-                //dbg!(&distribution_count);
-
-                for i in 0..counter.len() {
+                for (_ , &i) in counter.iter() {
                     let number = distribution_count[i];
                     let number_sqrt = number.sqrt();
-    
                     for j in 0..X_train[0].len() {
                         output_main[i][j].0 = if output_main[i][j].0 != 0.0 {
                             output_main[i][j].0 / number
@@ -123,9 +120,15 @@ impl MLalgo for gaussian_NB {
                         output_main[i][j].1 = (output_main[i][j].1 - (distribution_count[i] * (output_main[i][j].0).powf(2.0))) / number_sqrt;
                     }
                 }
+
+                let mut in_order_keys: Vec<String> = vec![String::new() ; counter.len()];
+                for (k , v) in counter {
+                    in_order_keys[v] = k;
+                }
+
     
                 self.means_and_std_devs = output_main;
-                self.target_classes = Some(data_type::Strings(counter.keys().cloned().collect()));
+                self.target_classes = Some(data_type::Strings(in_order_keys));
                 self.total_number_of_cases = X_train.len().try_into().unwrap();
                 self.target_class_distributions = distribution_count.iter().map(|x| *x as usize).collect();
                 return;
@@ -143,7 +146,7 @@ impl predict for gaussian_NB {
     fn predict(&self, point : &Vec<f32>) -> return_type {
         //first we are going to calculate the numerator of the posterior for all the class types.
 
-        
+
         let mut present_max = (f32::MIN , -1_i32);//-1 to not have any bugs.
 
         for i in 0..self.target_class_distributions.len() {
