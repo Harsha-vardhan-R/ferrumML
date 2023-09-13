@@ -1,7 +1,7 @@
 use core::panic;
 use std::collections::HashMap;
 use rayon::prelude::{IntoParallelRefIterator, IndexedParallelIterator, ParallelIterator};
-use crate::csv_handling::{data_frame, data_type , return_type, print_at_index};
+use crate::data_frame::{data_type::*, return_type::*};
 
 #[derive(Debug)]
 pub struct gaussian_NB {
@@ -18,6 +18,7 @@ pub fn gaussian_NB() -> gaussian_NB {
         total_number_of_cases: 0,
         target_class_distributions: vec![],
     }
+    
 }
 
 pub trait MLalgo {

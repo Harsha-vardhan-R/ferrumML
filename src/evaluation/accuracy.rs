@@ -1,4 +1,6 @@
-use crate::{csv_handling::{data_type, return_type, length}, supervised::naive_bayes::naive_bayes::predict};
+use crate::{supervised::naive_bayes::gaussian_NB::predict, data_frame::{data_type::*, return_type::return_type}};
+
+
 
 //model needs to contain the trait predict for this.
 pub fn accuracy_score<T : predict>(model : &T, X_test: &Vec<Vec<f32>> , y_test: &data_type) -> f32 {

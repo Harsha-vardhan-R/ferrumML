@@ -1,14 +1,28 @@
-#![allow(non_snake_case)]
-#![allow(warnings)]
-
-
-pub mod n_dimen;
+#![allow(non_snake_case, warnings)]
 
 pub mod preprocessing {
-    pub mod pca {
-        pub mod pca;
-        pub mod pca_test;
-    }
+    pub mod pca;
+    mod pca_test;
+    
+}
+
+pub mod n_dimen {
+    pub mod n_dimen;
+}
+
+pub mod evaluation {
+    pub mod accuracy;
+}
+
+pub mod data_frame {
+    pub mod data_frame;
+    mod data_frame_test;
+    pub mod data_type;
+    pub mod return_type;
+}
+
+pub mod file_handling {
+    pub mod read_from;
 }
 
 
@@ -29,7 +43,7 @@ pub mod clustering {
 
 pub mod supervised {
     pub mod naive_bayes {
-        pub mod naive_bayes;
+        pub mod gaussian_NB;
         mod naive_bayes_test;
     }
     pub mod decision_trees {
@@ -66,18 +80,9 @@ pub mod supervised {
     }
 
 }
-    
-
-pub mod csv_handling;
-mod csv_handling_test;
-
-pub mod general;
 
 
 fn main() {
     println!("Hello world!");
-
     println!("Now fuck off");
-    
-    println!("i am so sicking tired of this shit literally feels like i have some kind of constraint or something");
 }

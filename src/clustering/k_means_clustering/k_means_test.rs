@@ -1,14 +1,7 @@
 use std::time;
 
-
 #[cfg(test)]
-
-
-
-
 use crate::clustering::k_means_clustering::k_means_clustering::k_means_df;
-
-
 
 #[test]
 

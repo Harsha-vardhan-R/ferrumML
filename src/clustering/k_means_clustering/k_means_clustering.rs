@@ -1,6 +1,6 @@
 #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_imports)]
-
 #[derive(Debug , Clone)]
+
 pub struct sample_point {
     pub data : Vec<f32>,
     pub associated_cluster : Option<u32>,
@@ -36,10 +36,6 @@ use plotters::style::RGBColor;
 use plotters::prelude::Histogram as OtherHistogram;
 
 use rayon::prelude::*;
-
-use crate::csv_handling::*;
-
-use crate::csv_handling::get_headers;
 
 ///create the k_means object.
 /// by default,
@@ -715,16 +711,6 @@ impl k_means_spec<'_> {
         root.present().unwrap();     
 
     }
-
-    
-
-    /* fn plot_three_dimension(&self , path : &str) {
-
-    } */
-
-    /* fn plot_more_than_three_dimen(&self , path : &str) {
-
-    } */
     
 
 }
@@ -793,7 +779,8 @@ fn get_random_samples_from_df(data : &Vec<sample_point>, k: usize , number_of_fe
 use std::{error::Error, fs::File, io::{prelude::*, BufReader}};
 use csv::ReaderBuilder;
 
-use crate::{n_dimen::{distance_between, max_distance_between_sets}, csv_handling};
+use crate::{n_dimen::n_dimen::{distance_between, max_distance_between_sets}, data_frame::data_frame::get_headers}; 
+
 //The csv can have multiple columns of string types which cannot be parsed into f32s,
 //so we still need to have a which features to consider array, even though it is annoying, sorry :(
 fn csv_to_df(file_path: &str, which_features: &Vec<usize>) -> Result<(Vec<sample_point> , Vec<f32> , Vec<f32>), Box<dyn Error>> {
