@@ -1,20 +1,28 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Entry};
 use crate::data_frame::{data_type::data_type, return_type::return_type};
 
 
+///Mainly used when the features represent counts or frequencies of different categories.
+/// -for example: like classifying document type, etc...
 pub struct multinomial_NB {
     target_classes: Option<data_type>,//we store all the unique target classes , order sensitive. we are going to follow the same order for storing the other parameters.
     target_class_distributions: Vec<usize>,
     total_number_of_cases: usize,
-    count_bin: Vec<Vec<f32>>,
+    count_bin: Vec<Vec<HashMap<i32, usize>>>,
+    word_count_bin: Vec<i64>,//here we are going to store the total number of words in each class so we need not calculate the probabilities before predicting.
+    //taking i64 just in case.
 }
 
+///creating the multinomial_NB object.
 pub fn multinomial_NB() -> multinomial_NB {
-    multinomial_NB{
+    println!("WARNING! This algorithm assumes that your data represents frequency(assumes the values are integers)");
+
+    multinomial_NB {
         target_classes: None,
         target_class_distributions: vec![],
         total_number_of_cases: 0,
         count_bin: vec![vec![]],
+        word_count_bin: vec![]
     }
 }
 
@@ -26,8 +34,11 @@ pub trait predict {
     fn predict(&self, point : &Vec<f32>) -> return_type;
 }
 
+//TODO -- the functions reallly have big if else statements which is not good but i am not finding any way to make it better.
 impl MLalgo for multinomial_NB {
     
+    ///Method to be called on the multinomial_NB struct , will fit the model according to the given data.
+    ///assumes the data is the frequency of something occuring so, will be treated as an integer.
     fn fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &data_type) {
 
         if let data_type::Category(temp) = y_train {
@@ -42,22 +53,29 @@ impl MLalgo for multinomial_NB {
                 }
             }
 
-            let mut output_main = vec![vec![0.0_f32 ; X_train[0].len()] ; counter.len()];
+            let mut output_main = vec![vec![HashMap::new()] ; counter.len()];
             let mut distribution_count = vec![0_usize ; counter.len()];
+            let mut word_count = vec![0_i64 ; counter.len()];
 
+            //noting down the number of times each feature appeared in each class.
+            //and also counting the number of data points in each class and number of total word counts of al features in each class.
             for ( i , row ) in X_train.iter().enumerate() {
-                let index = counter.get(&temp[i]).unwrap();
-                distribution_count[*index] += 1;
+                let &index = counter.get(&temp[i]).unwrap();
+                distribution_count[index] += 1;
                 for (j , &element) in row.iter().enumerate() {
-                    output_main[*index][j] += if !(element == 0.0) {
-                        element
-                    } else {
-                        1.0
-                    };
+                    word_count[index] += element as i64;//this is to count the probabilities while prediction.
+                    //will calculate the sum of frequencies for each class.
+                    //entering the values in the hashmap.
+                    match output_main[index][j].entry(element as i32) {
+                        Entry::Occupied(mut entry) => {
+                            *entry.get_mut() += element as usize;
+                        },
+                        Entry::Vacant(entry) => {
+                            entry.insert(element as usize);
+                        },
+                    }
                 }
             }
-
-
 
             let mut in_order_keys: Vec<u8> = vec![0 ; counter.len()];
             for (k , v) in &counter {
@@ -68,31 +86,43 @@ impl MLalgo for multinomial_NB {
             self.target_classes = Some(data_type::Category(in_order_keys));
             self.total_number_of_cases = X_train.len().try_into().unwrap();
             self.target_class_distributions = distribution_count.iter().map(|x| *x as usize).collect();
+            self.word_count_bin = word_count;
 
             return;
 
-        }
-
-        if let data_type::Strings(temp) = y_train {
+        } else if let data_type::Strings(temp) = y_train {
                 
+            //creating a hashmap and giving a index to each different category.
             let mut counter: HashMap<String, usize> = HashMap::new();
             let mut count = 0_usize;
             for i in temp {
                 if !counter.contains_key(i) {
-                    counter.insert(i.to_owned(), count);
+                    counter.insert(i.to_string() , count);
                     count += 1;
                 }
             }
 
-            //the vector first stores the sum and squares sum for each class for each feature.
-            let mut output_main = vec![vec![0.0_f32 ; X_train[0].len()] ; counter.len()];
+            let mut output_main = vec![vec![HashMap::new()] ; counter.len()];
             let mut distribution_count = vec![0_usize ; counter.len()];
+            let mut word_count = vec![0_i64 ; counter.len()];
 
+            //noting down the number of times each feature appeared in each class.
+            //and also counting the number of data points in each class and number of total word counts of al features in each class.
             for ( i , row ) in X_train.iter().enumerate() {
-                let index = counter.get(&temp[i]).unwrap();
-                distribution_count[*index] += 1;
+                let &index = counter.get(&temp[i]).unwrap();
+                distribution_count[index] += 1;
                 for (j , &element) in row.iter().enumerate() {
-                    output_main[*index][j] += element;
+                    word_count[index] += element as i64;//this is to count the probabilities while prediction.
+                    //will calculate the sum of frequencies for each class.
+                    //entering the values in the hashmap.
+                    match output_main[index][j].entry(element as i32) {
+                        Entry::Occupied(mut entry) => {
+                            *entry.get_mut() += element as usize;
+                        },
+                        Entry::Vacant(entry) => {
+                            entry.insert(element as usize);
+                        },
+                    }
                 }
             }
 
@@ -100,33 +130,45 @@ impl MLalgo for multinomial_NB {
             for (k , v) in &counter {
                 in_order_keys[*v] = k.to_string();
             }
-
+            
             self.count_bin = output_main;
             self.target_classes = Some(data_type::Strings(in_order_keys));
             self.total_number_of_cases = X_train.len().try_into().unwrap();
             self.target_class_distributions = distribution_count.iter().map(|x| *x as usize).collect();
+            self.word_count_bin = word_count;
 
             return;
 
+        } else {
+            panic!("You cannot train gaussian_NB with float as a target, for this model type");
         }
-
-        panic!("You cannot train gaussian_NB with float as a target, for this model type");
         
     }
 
+    //we need to implement another kind of fit for which we can use the 
+
 }
+
+//TODO -- way too many type castings, please improve it the code looks messy as shit.
 
 impl predict for multinomial_NB {
     
-    fn predict (&self, x : &Vec<f32> )-> return_type {
+    fn predict (&self, x : &Vec<f32>) -> return_type {
         
         let mut present_max = (f32::MIN , -1_i32);//-1 to not have any bugs.
 
-        for i in 0..self.target_class_distributions.len() {
-            let mut product_of_conditional = 1.0_f32;
+        for (i , bin_size) in self.target_class_distributions.iter().enumerate() {
+            //initializing with the class priors.
+            let mut product_of_conditional = *bin_size as f32 / self.total_number_of_cases as f32;
             for (j , element) in self.count_bin[i].iter().enumerate() {
-                ////////self.count_bin[i][j]
-                /// //need help
+                product_of_conditional *= match element.get(&(x[j] as i32)) {
+                    Some(temp) => ((*temp as f32)/(self.word_count_bin[i] as f32)).powf(x[j]),
+                    None => (1.0 / self.word_count_bin[i] as f32).powf(x[j]),
+                };
+
+                if product_of_conditional > present_max.0 {
+                    present_max = (product_of_conditional , i.try_into().unwrap());
+                }      
             }
         }
 
@@ -137,8 +179,9 @@ impl predict for multinomial_NB {
             data_type::Strings(temp) => {
                 return return_type::Strings(temp[present_max.1 as usize].clone());
             },
-            _ => panic!("No fucking way this reached here"),
+            _ => panic!("First train this data then use the predict method, and also you can only train this data on categorical or string targets"),
         }
+        
     }
 
 }

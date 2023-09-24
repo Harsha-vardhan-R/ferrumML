@@ -75,10 +75,6 @@ pub mod supervised {
         pub mod k_nearest_neighbours;
         mod k_nearest_neighbours_test;
     }
-    pub mod multi_layer_perceptron {
-        pub mod multi_layer_perceptron;
-        mod multi_layer_perceptron_test;
-    }
 
 }
 
@@ -86,4 +82,5 @@ pub mod supervised {
 fn main() {
     println!("Hello world!");
     println!("Now fuck off");
+	println!("Suddenly started to code this on ubuntu, I am such a loser man.");
 }

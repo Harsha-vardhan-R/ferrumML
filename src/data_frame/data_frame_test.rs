@@ -41,8 +41,6 @@ fn opening_df_2() {
 
 
 #[test]
-
-
 fn opening_df_3() {
     let start_time = time::Instant::now();
     let mut data = read_csv("C:/Users/HARSHA/Downloads/archive (1)/ds_salaries.csv", true , false).unwrap();

@@ -4,6 +4,9 @@ use rayon::prelude::{IntoParallelRefIterator, IndexedParallelIterator, ParallelI
 use crate::data_frame::{data_type::*, return_type::*};
 
 #[derive(Debug)]
+
+///used when the features represent some continuous variable.
+/// we assume that they follow atleast 
 pub struct gaussian_NB {
     target_classes: Option<data_type>,//we store all the unique target classes , order sensitive. we are going to follow the same order for storing the other parameters.
     target_class_distributions: Vec<usize>,
