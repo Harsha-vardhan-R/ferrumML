@@ -630,6 +630,8 @@ impl data_frame {
             }
         }
 
+
+        //I know we should use if else but you cannot create new variables in match.
         if let data_type::Category(temp) = &self.data[target_index] {
             let mut clone = temp.clone();
             for (i , j) in all_rows.iter().enumerate() {

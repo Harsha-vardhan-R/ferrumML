@@ -44,6 +44,7 @@ pub mod clustering {
 pub mod supervised {
     pub mod naive_bayes {
         pub mod gaussian_NB;
+        pub mod multinomial_NB;
         mod naive_bayes_test;
     }
     pub mod decision_trees {

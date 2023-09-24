@@ -11,6 +11,7 @@ pub struct gaussian_NB {
     means_and_std_devs: Vec<Vec<(f32 , f32)>>,
 }
 
+///creates a gaussian naive bayes object.
 pub fn gaussian_NB() -> gaussian_NB {
     gaussian_NB { 
         target_classes: None, 
@@ -28,6 +29,7 @@ pub trait MLalgo {
 pub trait predict {
     fn predict(&self, point : &Vec<f32>) -> return_type;
 }
+
 
 impl MLalgo for gaussian_NB {
     
@@ -78,9 +80,9 @@ impl MLalgo for gaussian_NB {
 
             //iterating over a hashmap is the dumbest idea i ever had , it is not fucking folling the order , fuck you chatGPT.
             let mut in_order_keys: Vec<u8> = vec![0 ; counter.len()];
-                for (k , v) in &counter {
-                    in_order_keys[*v] = *k;
-                }
+            for (k , v) in &counter {
+                in_order_keys[*v] = *k;
+            }
 
             self.means_and_std_devs = output_main;
             self.target_classes = Some(data_type::Category(in_order_keys));
@@ -144,11 +146,12 @@ impl MLalgo for gaussian_NB {
 
         }
 
-        panic!("You cannot train gaussian_NB with float as a target, if it is a !");
+        panic!("You cannot train gaussian_NB with float as a target, for this model type");
     
     }
 
 }
+
 
 impl predict for gaussian_NB {
 
