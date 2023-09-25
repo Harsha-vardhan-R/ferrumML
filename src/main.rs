@@ -1,5 +1,9 @@
 #![allow(non_snake_case, warnings)]
 
+//!ferrumAI
+//! A High level ml library written in pure rust.
+//! With a data_frame library included to manipulate the data.
+
 pub mod preprocessing {
     pub mod pca;
     mod pca_test;
@@ -86,5 +90,4 @@ pub mod supervised {
 fn main() {
     println!("Hello world!");
     println!("Now fuck off");
-	println!("Suddenly started to code this on ubuntu, I am such a loser man.");
 }

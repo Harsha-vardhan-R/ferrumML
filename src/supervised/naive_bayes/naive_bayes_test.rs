@@ -22,6 +22,6 @@ fn test_sample_gaussian() {
 fn test_sample_multinomial() {
     let start_time = time::Instant::now();
     let df = read_csv("", true, false).unwrap();
-    let h = df.train_test_split(0.4, target_index, true);
+    let h = df.train_test_split(0.4, 0, true);
     print!("{:?}", start_time.elapsed());   
 }

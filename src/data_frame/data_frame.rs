@@ -8,7 +8,7 @@ use rayon::prelude;
 use rand::seq::SliceRandom;
 use super::data_type::data_type;
 
-//TODO -- we still need to 
+//TODO -- we still need to fnd a way to normalize a point 
 pub struct data_frame {
     pub data: Vec<data_type>,
     pub headers: Vec<String>,
@@ -48,7 +48,7 @@ pub fn get_headers(path : &str , which_features: &Vec<usize> , number_of_feature
 
 }
 
-//dscribing the data frame in different ways.
+//describing the data frame in different ways.
 impl data_frame {
 
     pub fn head(&self) {
@@ -307,8 +307,6 @@ impl data_frame {
         
     }
 
-
-
     //here we take the name of the name of the column and turn the values into a particular encoding.
     //and also importantly the number of unique values should not exceed 256.
     pub fn encode(&mut self , column_name : &str) {
@@ -318,7 +316,6 @@ impl data_frame {
 
         let mut count = 0_u8;//the index value we are going to encode.
         let mut indexer: HashMap<String , u8> = HashMap::new();
-        let mut float_indexer: HashMap<f32 , u8> = HashMap::new();
 
         //giving each unique term an index value, which is basically an encoding.
         match &self.data[index] {
@@ -364,6 +361,56 @@ impl data_frame {
 
     }
 
+    ///if you have more than 256 different unique values , you need to use this to encode.
+    pub fn encode_float(&mut self, column_name : &str) {
+        //getting the index at which the column is located.
+        let index = self.headers.iter().position(|x| x == column_name).expect("The column name does not exist in the data set");
+
+        let mut count = 0.0_f32;//the index value we are going to encode.
+        let mut indexer: HashMap<String , f32> = HashMap::new();
+
+        //giving each unique term an index value, which is basically an encoding.
+        match &self.data[index] {
+            data_type::Strings(temp) => {
+                for i in temp {
+                    if !indexer.contains_key(i) {
+                        indexer.insert(i.to_owned(), count);
+                        count += 1.0_f32;
+                    }
+                }
+            },
+            data_type::Category(temp) => {
+                panic!("columns with the type category cannot be encoded");
+            },
+            data_type::Floats(temp) => {
+                panic!("columns with the type float cannot be encoded");
+            },
+        }
+
+        //allocating the memory 
+        let mut new_vector: Vec<f32> = vec![0.0_f32 ; self.number_of_samples.try_into().unwrap()];
+
+        let temp: &Vec<String>;
+
+        match &self.data[index] {
+            data_type::Strings(temp_) => {
+                temp = temp_;
+            },
+            data_type::Category(_) => panic!("The items in this row are already of the category data_type, no need to encode."),
+            data_type::Floats(_) => panic!("You cannot encode float values."),
+        }
+        for (i , element) in temp.iter().enumerate() {
+            new_vector[i] = *indexer.get(element).unwrap();
+        } 
+
+        let new_replacer = data_type::Floats(new_vector);
+
+        self.data[index] = new_replacer;
+
+        //this is needed so we can normalize this column afterwards if we have to.
+        self.max_vector[index] = (indexer.len() - 1) as f32;
+        self.min_vector[index] = 0.0_f32;
+    }
 
     pub fn normalize(&mut self) {
         // this is important to normalise the even the input in the predict , because it is still in the 
@@ -387,31 +434,28 @@ impl data_frame {
         let mut to_change: Vec<(usize , &Vec<f32>)> = vec![];
 
         self.data.par_iter_mut().enumerate().for_each(|(i , column)|
-        //here i signifies the column index of the number.
+            //here i signifies the column index of the number.
             match column {
                 data_type::Floats(temp) => {
                     for j in 0..number_of_samples_here {
                         temp[j] = (temp[j] - self.min_vector[i]) / min_max[i];
                     }
                 },
-                //cannot normalize types of category and string.
+                //here we need to create a new float type column and replace the current one with it.
                 data_type::Category(temp) => {
-                    //here we need to create a new float type column and replace the current one with it.
-                    ();///////////////////////////todoooooo
-                    /* let mut temp_2 = vec![0.0_f32 ; number_of_samples_here];
+                    let mut toreplace = vec![0.0_f32 ; self.number_of_samples.try_into().unwrap()];
                     for j in 0..number_of_samples_here {
-                        temp_2[j] = (temp[j] as f32 - self.min_vector[i]) / min_max[i];
+                        toreplace[j] = (temp[j] as f32 - self.min_vector[i]) / min_max[i];
                     }
-                    to_change.push((i , &temp_2)); */
+                    //replacing the present column with a data_type::Float type, cause you need floats to represent the column.
+                    *column = data_type::Floats(toreplace); 
                 },
+                //we do not modify the string typed stuff in any way.
                 data_type::Strings(_) => {
                     ();
                 },
             }
-        
-        
         );
-
 
         //setting new min and max, but this will not be trrue if all the values 
         //in the column are same , you need atleast two distinct value for 
@@ -428,7 +472,6 @@ impl data_frame {
     } 
  
     /// WARNING - if you want to take out the rows fom 2 to 7 for example, then you need to 
-    
     /// remove from the back so that we do not change the index of the next rows and drop ows that we need.
     /// also if this point contains min or max values then we are pretty much fucked up, be careful use this only in cases of emergency.
     /// and also the 0 index here refers to the first row , and not the headers.
@@ -456,6 +499,9 @@ impl data_frame {
         println!("{:?}", self.headers);
     }
 
+
+    
+  
     
     pub fn remove_columns(&mut self, which_columns : &Vec<usize>) {
         //need to be really careful cause taking out value at one index in a vector means the index values of all the values after it will shift,
@@ -486,7 +532,7 @@ impl data_frame {
         
     } 
     ///'''
-    /// data_frame.keep_columns(vector);
+    /// data_frame.keep_columns(#vector);
     /// '''
     /// This function drops all the columns exept the given columns.
     //internally it just uses the upper funcion
@@ -506,7 +552,6 @@ impl data_frame {
     pub fn get_shape(&self) -> (u32, u32) {
         (self.number_of_samples, self.number_of_features)
     }
-
 
 }
 
@@ -669,9 +714,15 @@ impl data_frame {
 
 }
 
-
+//transform point
 impl data_frame {
-    
+    ///if you transform the data set before the train test split then you need to do the 
+    ///exact transformation on an external point if you want to predict it, this functions should be used for it.
+    //first we are going to store the differrent transformations then we are going to apply that to the new point here.
+    pub fn transform(&self, point : Vec<f32>) {
+
+    }
+    //PLOTTING, SPECIAL STUFF
     //replace a value with another value.
     //replace a value witch meets certain conditions with an other value like a formula.
     //creating new data columns by adding values of other two columns.--will be helpful once we implemented the heatmaps for the relation between two heatmaps.

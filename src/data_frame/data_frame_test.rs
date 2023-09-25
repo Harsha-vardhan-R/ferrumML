@@ -47,29 +47,26 @@ fn opening_df_3() {
     //data.print_headers();
     //data.head();
     data.describe();    
-    data.describe_the("salary_in_usd", true);
-    data.normalize();
-    data.describe_the("salary_in_usd", true);
+    //data.describe_the("salary_in_usd", true);
+    //data.normalize();
+    //data.describe_the("salary_in_usd", true);
     dbg!(data.get_shape());
     //data.head();
     data.remove_columns(&vec![0]);
-
     data.encode("experience_level");
-    data.encode("employment_type");
+    //data.encode("employment_type");
     data.encode("job_title");
     data.encode("salary_currency");
-    data.encode("employee_residence");
+    //data.encode("employee_residence");
     data.encode("company_location");
+    data.encode("company_size");
 
     data.normalize();
 
-    let h = data.train_test_split(0.2, 10, true);
-    for i in h.0.iter().enumerate() {
-        if i.0 > 5 {
-            break;
-        }
-        dbg!(i.1);
-    }
+    data.describe();
+
+    //let h = data.train_test_split(0.2, 10, true);
+    
     println!("{:?}", start_time.elapsed());
 
 }
