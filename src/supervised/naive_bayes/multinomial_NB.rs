@@ -28,6 +28,8 @@ pub fn multinomial_NB() -> multinomial_NB {
 
 pub trait MLalgo {
     fn fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &data_type);
+    ///uses kernel density estimation rather than just depending on the exact particular probaility.
+    fn smooth_fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &data_type);
 }
 
 pub trait predict {
@@ -68,10 +70,10 @@ impl MLalgo for multinomial_NB {
                     //entering the values in the hashmap.
                     match output_main[index][j].entry(element as i32) {
                         Entry::Occupied(mut entry) => {
-                            *entry.get_mut() += element as usize;
+                            *entry.get_mut() += 1_usize;
                         },
                         Entry::Vacant(entry) => {
-                            entry.insert(element as usize);
+                            entry.insert(1_usize);
                         },
                     }
                 }
@@ -117,10 +119,10 @@ impl MLalgo for multinomial_NB {
                     //entering the values in the hashmap.
                     match output_main[index][j].entry(element as i32) {
                         Entry::Occupied(mut entry) => {
-                            *entry.get_mut() += element as usize;
+                            *entry.get_mut() += 1_usize;
                         },
                         Entry::Vacant(entry) => {
-                            entry.insert(element as usize);
+                            entry.insert(1_usize);
                         },
                     }
                 }
@@ -145,7 +147,11 @@ impl MLalgo for multinomial_NB {
         
     }
 
-    //we need to implement another kind of fit for which we can use the 
+    //we need to implement another kind of fit for which we can use the
+    ///using the kernel smoothing technique
+    fn smooth_fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &data_type) {
+        
+    }
 
 }
 
@@ -162,8 +168,8 @@ impl predict for multinomial_NB {
             let mut product_of_conditional = *bin_size as f32 / self.total_number_of_cases as f32;
             for (j , element) in self.count_bin[i].iter().enumerate() {
                 product_of_conditional *= match element.get(&(x[j] as i32)) {
-                    Some(temp) => ((*temp as f32)/(self.word_count_bin[i] as f32)).powf(x[j]),
-                    None => (1.0 / self.word_count_bin[i] as f32).powf(x[j]),
+                    Some(temp) => (((*temp as f32) * (x[j]))/(self.word_count_bin[i] as f32)).powf(x[j]),
+                    None => (1.0 / (self.word_count_bin[i] as f32 + (self.count_bin[0].len() as f32))).powf(x[j]),
                 };
 
                 if product_of_conditional > present_max.0 {
@@ -181,7 +187,7 @@ impl predict for multinomial_NB {
             },
             _ => panic!("First train this data then use the predict method, and also you can only train this data on categorical or string targets"),
         }
-        
+
     }
 
 }

@@ -8,6 +8,7 @@ use rayon::prelude;
 use rand::seq::SliceRandom;
 use super::data_type::data_type;
 
+//TODO -- we still need to 
 pub struct data_frame {
     pub data: Vec<data_type>,
     pub headers: Vec<String>,
@@ -17,7 +18,6 @@ pub struct data_frame {
     pub min_vector: Vec<f32>,//similarly stores the minimum value.
     pub normalized: bool,
 } 
-
 
 pub fn get_headers(path : &str , which_features: &Vec<usize> , number_of_features : usize) -> Vec<String> {
     let file_system = File::open(path).unwrap();
@@ -48,9 +48,7 @@ pub fn get_headers(path : &str , which_features: &Vec<usize> , number_of_feature
 
 }
 
-
-
-//functions like normalize and feature and sample point manipulation.
+//dscribing the data frame in different ways.
 impl data_frame {
 
     pub fn head(&self) {
@@ -255,8 +253,52 @@ impl data_frame {
 
     }
 
+    pub fn null_stats(&self) {
+        let mut type_of_data = vec![];
+        let mut number_of_null = vec![0_u32 ; self.number_of_features.try_into().unwrap()];
+
+        for (i , column) in self.data.iter().enumerate() {
+            match column {
+                data_type::Category(temp) => {
+                    type_of_data.push(2);//you will never get null or nan in this category.
+                    
+                },
+                data_type::Floats(temp) => {
+                    type_of_data.push(0);
+                    let num_of_null = temp.iter().filter(|x| x.is_nan()).count();
+                    number_of_null[i] = num_of_null.try_into().unwrap();
+                },
+                data_type::Strings(temp) => {
+                    type_of_data.push(1);
+                    let mut num_of_null = 0_u32;
+                    for i in temp.iter() {
+                        if i == "null" || i == "NULL" || i == "None" || i == "" {
+                            num_of_null+=1;
+                        }
+                    }
+                    number_of_null[i] = num_of_null;
+                }
+            }
+        }
+
+        for (i , type_) in type_of_data.iter().enumerate() {
+            print!("{} -> ", i+1);
+            if *type_ == 0 {
+                println!("{:<20} float   {} null values", self.headers[i] , number_of_null[i]);
+            } else if *type_ == 1 {
+                println!("{:<20} String   {} null values", self.headers[i] , number_of_null[i]);
+            } else {
+                println!("{:<20} category   will never have null, automatically replaced with the value 0", self.headers[i]);
+            }
+        }
+    }
 
 
+}
+
+//column ad row manipulation.
+impl data_frame {
+    
     pub fn rename_columns(&mut self, strings : Vec<&str>) {
 
         for i in 0..self.headers.len() {
@@ -465,49 +507,6 @@ impl data_frame {
         (self.number_of_samples, self.number_of_features)
     }
 
-    
-    
-
-    pub fn null_stats(&self) {
-        let mut type_of_data = vec![];
-        let mut number_of_null = vec![0_u32 ; self.number_of_features.try_into().unwrap()];
-
-        for (i , column) in self.data.iter().enumerate() {
-            match column {
-                data_type::Category(temp) => {
-                    type_of_data.push(2);//you will never get null or nan in this category.
-                    
-                },
-                data_type::Floats(temp) => {
-                    type_of_data.push(0);
-                    let num_of_null = temp.iter().filter(|x| x.is_nan()).count();
-                    number_of_null[i] = num_of_null.try_into().unwrap();
-                },
-                data_type::Strings(temp) => {
-                    type_of_data.push(1);
-                    let mut num_of_null = 0_u32;
-                    for i in temp.iter() {
-                        if i == "null" || i == "NULL" || i == "None" || i == "" {
-                            num_of_null+=1;
-                        }
-                    }
-                    number_of_null[i] = num_of_null;
-                }
-            }
-        }
-
-        for (i , type_) in type_of_data.iter().enumerate() {
-            print!("{} -> ", i+1);
-            if *type_ == 0 {
-                println!("{:<20} float   {} null values", self.headers[i] , number_of_null[i]);
-            } else if *type_ == 1 {
-                println!("{:<20} String   {} null values", self.headers[i] , number_of_null[i]);
-            } else {
-                println!("{:<20} category   will never have null, automatically replaced with the value 0", self.headers[i]);
-            }
-        }
-    }
-
 
 }
 
@@ -670,8 +669,9 @@ impl data_frame {
 
 }
 
-//Todo.
+
 impl data_frame {
+    
     //replace a value with another value.
     //replace a value witch meets certain conditions with an other value like a formula.
     //creating new data columns by adding values of other two columns.--will be helpful once we implemented the heatmaps for the relation between two heatmaps.

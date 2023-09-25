@@ -10,6 +10,10 @@ pub mod n_dimen {
     pub mod n_dimen;
 }
 
+pub mod feature_extraction {
+    pub mod tokenisation;
+}
+
 pub mod evaluation {
     pub mod accuracy;
 }
