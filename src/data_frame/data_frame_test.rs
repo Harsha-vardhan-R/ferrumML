@@ -25,16 +25,9 @@ fn opening_df_2() {
     //data.print_headers();
     //data.head();
     data.head();
-    //data.normalize();
+    data.normalize();
     //data.head();
     data.describe();
-    let h = data.train_test_split(0.2, 12, true);
-    for i in h.2.iter().enumerate() {
-        dbg!(i.1);/* 
-        if i.0 > 5 {
-            break;
-        } */
-    }
     data.null_stats();
     print!("{:?}", start_time.elapsed());
 }

@@ -8,7 +8,9 @@ use rayon::prelude;
 use rand::seq::SliceRandom;
 use super::data_type::data_type;
 
-//TODO -- we still need to fnd a way to normalize a point 
+//TODO -- we still need to find a way to normalize a external point -- in progress transform , 
+//we basically store the history of what happned to the each column before and then we are going to do the same on then present.
+
 pub struct data_frame {
     pub data: Vec<data_type>,
     pub headers: Vec<String>,
@@ -17,7 +19,12 @@ pub struct data_frame {
     pub max_vector: Vec<f32>,//stores the maximum value of each feature.
     pub min_vector: Vec<f32>,//similarly stores the minimum value.
     pub normalized: bool,
-} 
+}    
+
+//data frame can be spitted and trained on.
+pub trait train_test_split {
+    fn train_test_split(&self , test_size : f32 , target_index : usize , shuffle : bool ) -> (Vec<Vec<f32>> , data_type , Vec<Vec<f32>> , data_type);
+}
 
 pub fn get_headers(path : &str , which_features: &Vec<usize> , number_of_features : usize) -> Vec<String> {
     let file_system = File::open(path).unwrap();
@@ -675,7 +682,7 @@ impl data_frame {
         }
 
 
-        //I know we should use if else but you cannot create new variables in match.
+        
         if let data_type::Category(temp) = &self.data[target_index] {
             let mut clone = temp.clone();
             for (i , j) in all_rows.iter().enumerate() {
@@ -684,9 +691,9 @@ impl data_frame {
             let y_train = data_type::Category(clone[0..train_length].to_vec());
             let y_test = data_type::Category(clone[train_length..sample_number].to_vec());
             return (X_train  , y_train , X_test , y_test);
-        }
+        } 
         
-        if let data_type::Floats(temp) = &self.data[target_index] {
+        else if let data_type::Floats(temp) = &self.data[target_index] {
             let mut clone = temp.clone();
             for (i , j) in all_rows.iter().enumerate() {
                 clone[i] = temp[*j];
@@ -694,9 +701,9 @@ impl data_frame {
             let y_train = data_type::Floats(clone[0..train_length].to_vec());
             let y_test = data_type::Floats(clone[train_length..sample_number].to_vec());
             return (X_train  , y_train , X_test , y_test);
-        }
-
-        if let data_type::Strings(temp) = &self.data[target_index] {
+        } 
+        
+        else if let data_type::Strings(temp) = &self.data[target_index] {
             let mut clone = temp.clone();
             for (i , j) in all_rows.iter().enumerate() {
                 clone[i] = temp[*j].clone();

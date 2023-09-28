@@ -1,3 +1,6 @@
+//TODO - confusion matrix.
+
+
 use crate::{supervised::naive_bayes::gaussian_NB::predict, data_frame::{data_type::*, return_type::return_type}};
 
 

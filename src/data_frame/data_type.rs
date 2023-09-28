@@ -1,4 +1,12 @@
+//!data_type:
+//! The underlying column representation of the data_frame type.
+//! can have three different states
+//! ---data_type::Float as vec<f32>
+//! ---data_type::String as vec<String>
+//! ---data_type::Category as vec<u8>
+//! inside vectors can me called and mutated but there will be a problem in the uploading of max and min terms 
 
+//a custom iterator which returns an iterator to the mutable reference on the objects .
 
 #[derive(Debug, Clone)]
 pub enum data_type {
