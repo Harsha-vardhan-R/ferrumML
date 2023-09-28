@@ -5,11 +5,10 @@
 fn divide_n_print() {
     use super::tokenisation::SpecialStr;
 
-    let input = String::from("The hungry !ass .dog.");
+    let input = "**Tha&khva a#% vhbavbevb{}pp'llop'.";
     let new_one = SpecialStr::new(&input);
 
-    for i in new_one.iter() {
-        println!("{}",i) ;
-    }
+    let temp: Vec<&str> = new_one.into_iter().collect();
 
+    assert_eq!(temp , vec!["Tha", "khva", "a", "vhbavbevb", "pp", "llop"]);
 }

@@ -15,18 +15,15 @@ pub struct Tokens<'a> {
 }
 
 pub struct SpecialStr<'a> {
-    string: &'a String,
-    front: usize,//index of the starting letter of the &str substring.
+    string: &'a str,
     back: usize,//index of the back of the &str substring.
 }
 
 impl<'a> SpecialStr<'a> {
-    pub fn new(input : &'a String) -> Self {
+    pub fn new(input : &'a str) -> Self {
         SpecialStr{
             string : input,
-            front : 0,
-            back:  1,
-
+            back: 0,
         }
     }
 }
@@ -38,39 +35,25 @@ fn is_special(c: char) -> bool {
 
 impl<'a> Iterator for SpecialStr<'a> {
     type Item = &'a str;
-    
+
     fn next(&mut self) -> Option<Self::Item> {
         let input_string: &str = self.string;
-        let max_index = self.string.len() - 1;
+        let max_index = self.string.len();
 
-        if self.back == max_index {
-            return None;
-        }
-
-        'outer : for i in self.front..max_index {
-            if is_special(self.string.chars().nth(i).unwrap()) {
-                continue;
-            } else {
-                for j in i..max_index {
-                    if is_special(self.string.chars().nth(j).unwrap_or(return None)) {
-                        self.front = i;
+        for i in self.back..max_index {
+            if !is_special(self.string.chars().nth(i).unwrap()) {
+                for j in (i+1)..max_index {
+                    if is_special(self.string.chars().nth(j).unwrap()) || j == max_index {
                         self.back = j;
-                        break 'outer;
+                        return Some(&input_string[i..j]);
                     }
                 }
             }
-
         }
 
-        Some(&input_string[self.front..self.back])
+        None
     }
-
 }
-
-
-
-
-
 
 
 impl<'a> Tokens<'a> {
