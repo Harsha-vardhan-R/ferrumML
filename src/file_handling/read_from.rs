@@ -1,10 +1,12 @@
 //turn the data from a csv into the struct data_frame to modify or train it further.
 use std::{error::Error, fs::File, io::BufReader};
-use csv::ReaderBuilder;
+use csv::{ReaderBuilder, StringRecord};
 use crate::data_frame::{data_frame::*, data_type::data_type};
 
+// todo -- we still need to find a way to load more than the present ram sized datasets, like the panda chunks -- we also need to create completely new dataframe that can dynamically load chunks and a
+//new train test splitter and a new accuracy scorer but this is will be taken care of after some time.
 
-
+//this function may seem dumb for loading the data like 4 times , but i do not think we can allocate the space without that.
 
 pub fn read_csv(file_path : &str , header : bool , category : bool) -> Result<data_frame, Box<dyn Error>> {
 
@@ -15,7 +17,7 @@ pub fn read_csv(file_path : &str , header : bool , category : bool) -> Result<da
     let mut data_type_vector:Vec<u8> = vec![];
 
     //opening the file for the first time.
-    let file_system = File::open(file_path)?;
+    let file_system = File::open(file_path).unwrap();
     let reader = BufReader::new(file_system);
     
     let mut csv_reader = ReaderBuilder::new().has_headers(true).from_reader(reader);
@@ -23,7 +25,10 @@ pub fn read_csv(file_path : &str , header : bool , category : bool) -> Result<da
 
     //first we will count the number of samples 
     for records in csv_reader.into_records() {
-        let result = records?;
+        /* let result = match records {
+            Ok(records) => records,
+            Err(_) => continue,
+        }; */
         number_of_samples += 1;
     }
 
@@ -86,15 +91,14 @@ pub fn read_csv(file_path : &str , header : bool , category : bool) -> Result<da
     //the i here give the sample index of the data_set.
     let default_parse_fail = 0_u8;
 
-    let records: Vec<_> = csv_reader.records().collect();
-    
-    records.iter().enumerate().for_each(|(i, record)| {
+
+    csv_reader.records().enumerate().for_each(|(i, record)| {
 
         if let Ok(_result) = record {
             for (j , element) in _result.iter().enumerate() {
 
                 match data_type[j] {
-                    0 =>  { 
+                    0 =>  {
                         if let data_type::Floats(data_f32) = &mut data[j]{
                             //we failed to turn this into a f32 that means it is some nan , null, that kind of shit so we fill it with NAN to identify it easily.
                             let temp = element.parse::<f32>().unwrap_or_else(|_| f32::NAN);
@@ -110,6 +114,7 @@ pub fn read_csv(file_path : &str , header : bool , category : bool) -> Result<da
                     },
                     1 => {
                         if let data_type::Strings(data_string) = &mut data[j] {
+                            //it always parses here, not a problem.
                             data_string[i] = element.to_owned();
                         }
                     },
@@ -131,15 +136,11 @@ pub fn read_csv(file_path : &str , header : bool , category : bool) -> Result<da
                     _ => {}
                 }
             }
+        } else {
+            eprintln!("couldn't parse the record at {}", i);
         };
-        //the j will give us the feature attributes.
-        
-        
-        }   
-    );
-     
+    });
     
-
     let mut headers = vec![String::new() ; number_of_attributes.try_into().unwrap()];
     //setting the headers
     if header {
@@ -147,9 +148,10 @@ pub fn read_csv(file_path : &str , header : bool , category : bool) -> Result<da
         let reader = BufReader::new(file_system);
         let mut csv_reader = ReaderBuilder::new().has_headers(true).from_reader(reader);
 
-        let _result = csv_reader.headers()?;
+        let temp2 = StringRecord::default();
+        let _result = csv_reader.headers().unwrap_or(&temp2);
         for (i , name) in _result.iter().enumerate() {
-            headers[i] = _result.get(i).unwrap().to_owned();
+            headers[i] = _result.get(i).unwrap_or("PARSE_FAIL").to_owned();
         }
     } else {
         for i in 0..number_of_attributes {

@@ -6,8 +6,8 @@ use std::collections::hash_map::Entry;
 use crate::data_frame::data_type::data_type;
 use crate::data_frame::data_frame::data_frame;
 
-pub struct Tokens<'a> {
-    column_index: HashMap<&'a str, usize>,//used to store the index at which each token is present.
+pub struct Tokens {
+    column_index: HashMap<String, usize>,//used to store the index at which each token is present.
     token_vector: Vec<Vec<usize>>,//the sparse(typically) matrix which we are going to store of the repetation.
     token_distribution: Vec<usize>,//store the rarity of the each word in a row matrix.
 }
@@ -21,16 +21,14 @@ pub struct SpecialStr<'a> {
 
 impl<'a> SpecialStr<'a> {
     pub fn new(input : &'a str) -> Self {
-        SpecialStr{
-            string : input,
-            back: 0,
-        }
+        SpecialStr {string: input, back: 0}
     }
 }
 
 //to split at all the places which are special.
 //but we need to give some special importance to the '?', '!', '', ''
 
+//anything which is not a alphanumeric or a whitespace.
 fn is_special(c: char) -> bool {
     !c.is_ascii_alphanumeric() && !c.is_whitespace()
 }
@@ -51,7 +49,11 @@ impl<'a> Iterator for SpecialStr<'a> {
                 self.back += 1;
                 return Some(&input_string[self.back-1..self.back]);
             } else if !self.string.chars().nth(front).unwrap().is_whitespace() {
-                //if it is not a special character then we are going to select a substring whose end will be at the one before the next following special character
+                //if it is not a special character then we are going to select a substring whose end will be at :
+                //--the one before the next following special character
+                //--or the one before a whitespace
+                //--or the one before the end of the sentence.
+                //then we are going to determine the substring to be selected based on this comparision.
                 for back in front+1..max_index {
                     if is_special(self.string.chars().nth(back).unwrap()) || self.string.chars().nth(back).unwrap().is_whitespace() || back == max_index-1 {
                         self.back = back;
@@ -69,9 +71,9 @@ impl<'a> Iterator for SpecialStr<'a> {
 }
 
 
-impl<'a> Tokens<'a> {
+impl Tokens {
 
-    pub fn new() -> Tokens<'a> {
+    pub fn new() -> Tokens {
         Tokens {
             column_index: HashMap::new(),
             token_vector: vec![vec![]], 
@@ -80,7 +82,7 @@ impl<'a> Tokens<'a> {
     }
 
     //possible only for the string data type.
-    pub fn tokenise(&mut self, frame : &'a data_frame, column_index : usize) {
+    pub fn tokenise(&mut self, frame : &data_frame, column_index : usize) {
 
         //not preallocating the memory because we do not know the number of individual words we are going to come across.
         let mut token_distribution: Vec<usize> = vec![];
@@ -92,11 +94,14 @@ impl<'a> Tokens<'a> {
             data_type::Strings(temp) => {
                 //for each sentence in the given column.
                 for (i , sentence) in temp.iter().enumerate() {
+                    let lower_temp = sentence.to_lowercase();
+                    let special_string: SpecialStr = SpecialStr::new(&lower_temp);
                     //comparing each word after making it lowercase.
-                    for word in SpecialStr::new(&sentence).into_iter() {
+                    //going through the special iterator ;)
+                    for word in special_string.into_iter() {
                         //if the word is already occupied then we are going to just add 1 to the token distribution at that index
                         //or we are going to insert this value with the value 1. 
-                        match self.column_index.entry(word) {
+                        match self.column_index.entry(word.to_owned()) {
                             Entry::Occupied(temp) => {
                                 let &index_of = temp.get();//where do we need to locate the word. 
                                 token_distribution[index_of] += 1;
@@ -111,6 +116,7 @@ impl<'a> Tokens<'a> {
                             },
                         }
                     }
+                
                 }
             },
             _ => panic!("You cannot tokenise the float or the category data type"),
