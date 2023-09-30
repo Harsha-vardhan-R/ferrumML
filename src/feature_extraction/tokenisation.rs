@@ -1,10 +1,11 @@
 //!FEATURE EXTRACTION:
 //!Extract the wanted attributes from the data.
 
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
-use crate::data_frame::data_type::data_type;
-use crate::data_frame::data_frame::data_frame;
+use std::borrow::Cow;
+use std::collections::{HashMap, hash_map::Entry};
+use fastrand::char;
+
+use crate::data_frame::{data_type::data_type, data_frame::data_frame};
 
 pub struct Tokens {
     column_index: HashMap<String, usize>,//used to store the index at which each token is present.
@@ -16,7 +17,7 @@ pub struct Tokens {
 //special whitespace and special character dividing iterator.
 pub struct SpecialStr<'a> {
     string: &'a str,
-    back: usize,//index of the back of the &str substring.
+    back: usize,//index of the back of the &str substring.(we are using the charindices so we are for sure going to get an index which is a boundary)
 }
 
 impl<'a> SpecialStr<'a> {
@@ -29,45 +30,46 @@ impl<'a> SpecialStr<'a> {
 //but we need to give some special importance to the '?', '!', '', ''
 
 //anything which is not a alphanumeric or a whitespace.
-fn is_special(c: char) -> bool {
+pub fn is_special(c: char) -> bool {
     !c.is_ascii_alphanumeric() && !c.is_whitespace()
 }
 
 //this iterator divides into "I am an assHoLe!." into an iterator which gives out ("i" , "am", "an" , "asshole" , "!", ".")
 //we are going to split at the whitespaces and any special characters.
 
+
+//TODO = we also probably need some variation of this which return the consecutive special chars as a single substring.'cause generally 
+
 impl<'a> Iterator for SpecialStr<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let input_string: &str = self.string;
         let max_index = self.string.len();
 
-        for front in self.back..max_index {
+        for (i , character) in self.string.char_indices().skip(self.back) {
             //if the present char is a special character just return it by itself.
-            if is_special(self.string.chars().nth(front).unwrap()) {
-                self.back += 1;
-                return Some(&input_string[self.back-1..self.back]);
-            } else if !self.string.chars().nth(front).unwrap().is_whitespace() {
+            if is_special(character) {
+                self.back = i+1;
+                return Some(&self.string[i..i+character.len_utf8()]);
+            } else if !character.is_whitespace() {
                 //if it is not a special character then we are going to select a substring whose end will be at :
                 //--the one before the next following special character
                 //--or the one before a whitespace
                 //--or the one before the end of the sentence.
                 //then we are going to determine the substring to be selected based on this comparision.
-                for back in front+1..max_index {
-                    if is_special(self.string.chars().nth(back).unwrap()) || self.string.chars().nth(back).unwrap().is_whitespace() || back == max_index-1 {
+                for (back , character_2) in self.string.char_indices().skip(self.back+1) {
+                    if is_special(character_2) || character_2.is_whitespace() || back+character_2.len_utf8() == max_index {
                         self.back = back;
-                        return Some(&input_string[front..back]);
+                        return Some(&self.string[i..back]);
                     }
                 }
-            } else {
+            } else {//if there are more than 1 consecutive spaces
                 self.back += 1;
             }
         }
-
         None
-
     }
+
 }
 
 
@@ -120,7 +122,29 @@ impl Tokens {
                 }
             },
             _ => panic!("You cannot tokenise the float or the category data type"),
-        } 
+        }
+
+        self.token_distribution = token_distribution;
+        self.token_vector = sparse;
+
+    }
+
+    //need to return some proper stuff
+    //now this is just a placeholder
+    pub fn describe(&self) {
+        //assert!(self.token_distribution.len() != 0 , "You need to first tokenise to able to describe it");
+
+        println!("There are {} unique tokens", self.token_distribution.len());
+
+        let mut count = 0;
+
+        for i in &self.column_index {
+            println!("{} -> {}", i.0 , self.token_distribution[*i.1]);
+            count += 1;
+            if count > 50 {
+                break;
+            }
+        }
     }
 
 

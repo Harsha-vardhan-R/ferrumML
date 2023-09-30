@@ -1,4 +1,6 @@
-use crate::file_handling::read_from::read_csv;
+use rayon::prelude::IndexedParallelIterator;
+
+use crate::{file_handling::read_from::read_csv, feature_extraction::tokenisation::is_special};
 
 use super::tokenisation::{self, Tokens};
 
@@ -26,20 +28,53 @@ fn divide_n_print_2() {
 
     let temp: Vec<&str> = new_one.into_iter().collect();
 
-    //println!("{:?}", temp);
+    println!("{:?}", temp);
 
     assert_eq!(temp , vec!["hvcvk", "(", "vuk", "=", "=", "gvyv", "'", "'", "jvv", "(", "hvktv"]);
 }
 
+//still need to test this on social media emojies and other utf8 exclusives and stuff.
+
+#[test]
+
+////////this is not exactly working as it should, but just going with it.
+fn divide_n_print_3() {
+    use super::tokenisation::SpecialStr;
+
+    let input = "` i love mine, too . happy motherï¿½s day to all";
+    let new_one = SpecialStr::new(&input);
+
+    let temp: Vec<&str> = new_one.into_iter().collect();
+    
+    println!("{:?}",&temp);
+
+
+}
+
+#[test]
+fn divide_n_print_4() {
+    use super::tokenisation::SpecialStr;
+
+    let input = "Journey!? Wow... u just became cooler.  hehe... (is that possible!?)";
+    let new_one = SpecialStr::new(&input);
+
+    for i in new_one.into_iter() {
+        println!("{}", i);
+    }
+
+    //assert_eq!(temp , vec!["`", "i", "love", "mine", ",", "too", ".", "happy", "mother", "ï", "½", "ay", "al"]);
+
+}
 #[test]
 
 fn opening_and_tokenising() {
-    let new_ = read_csv("C:/Users/HARSHA/Downloads/archive/test.csv", true, false).unwrap();
-    
-    
+    let new_ = read_csv("C:/Users/HARSHA/Downloads/archive/train.csv", true, false).unwrap();
     new_.describe();
     
     let mut temp = Tokens::new();
 
-    temp.tokenise(&new_, 1); 
+    temp.tokenise(&new_, 1);
+
+    temp.describe();
+
 }

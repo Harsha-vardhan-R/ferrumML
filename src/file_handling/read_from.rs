@@ -12,24 +12,17 @@ pub fn read_csv(file_path : &str , header : bool , category : bool) -> Result<da
 
     let mut number_of_samples = 0_u32;
     let mut number_of_attributes = 0_u32;
-    //we are going to fill this using 0 and 1 , if we found that we cannot parse the number , 
-    //then we are going to push a 1 or else we are going to push a 0;
-    let mut data_type_vector:Vec<u8> = vec![];
 
     //opening the file for the first time.
     let file_system = File::open(file_path).unwrap();
     let reader = BufReader::new(file_system);
-    
     let mut csv_reader = ReaderBuilder::new().has_headers(true).from_reader(reader);
-
-
     //first we will count the number of samples 
     for records in csv_reader.into_records() {
-        /* let result = match records {
-            Ok(records) => records,
+        match records {
+            Ok(_) => number_of_samples += 1,
             Err(_) => continue,
-        }; */
-        number_of_samples += 1;
+        };
     }
 
     //opening the file for the second time to calculate the the data_type of the column and count the number of attributes.
@@ -91,8 +84,8 @@ pub fn read_csv(file_path : &str , header : bool , category : bool) -> Result<da
     //the i here give the sample index of the data_set.
     let default_parse_fail = 0_u8;
 
-
-    csv_reader.records().enumerate().for_each(|(i, record)| {
+    let mut i = 0_usize;//we cannot enumerate because some of the records may fail to parsed, so we will be get up getting a wrong index for it.
+    csv_reader.records().for_each(|record| {
 
         if let Ok(_result) = record {
             for (j , element) in _result.iter().enumerate() {
@@ -136,8 +129,9 @@ pub fn read_csv(file_path : &str , header : bool , category : bool) -> Result<da
                     _ => {}
                 }
             }
+            i += 1;
         } else {
-            eprintln!("couldn't parse the record at {}", i);
+            eprint!("couldn't parse the record at {}\n", i);
         };
     });
     
