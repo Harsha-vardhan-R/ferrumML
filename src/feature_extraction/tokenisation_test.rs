@@ -48,6 +48,10 @@ fn divide_n_print_3() {
     
     println!("{:?}",&temp);
 
+    /* for i in input.char_indices() {
+        dbg!(i);
+    } */
+
 
 }
 

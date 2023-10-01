@@ -46,10 +46,13 @@ impl<'a> Iterator for SpecialStr<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let max_index = self.string.len();
 
+        //the char indices iterator returns the byte position of each character and the character itself
+        //so it can give out values like 23 ,27 , 28 consecutively which is not a problem , but the skip doesn't
+        //care about it it just looks for the first n elements so it doesn't care about the byte index.
         for (i , character) in self.string.char_indices().skip(self.back) {
-            //if the present char is a special character just return it by itself.
+            //if the present char is a special character just return the character by itself.
             if is_special(character) {
-                self.back = i+1;
+                self.back += 1;
                 return Some(&self.string[i..i+character.len_utf8()]);
             } else if !character.is_whitespace() {
                 //if it is not a special character then we are going to select a substring whose end will be at :
@@ -58,8 +61,8 @@ impl<'a> Iterator for SpecialStr<'a> {
                 //--or the one before the end of the sentence.
                 //then we are going to determine the substring to be selected based on this comparision.
                 for (back , character_2) in self.string.char_indices().skip(self.back+1) {
-                    if is_special(character_2) || character_2.is_whitespace() || back+character_2.len_utf8() == max_index {
-                        self.back = back;
+                    self.back += 1;
+                    if is_special(character_2) || character_2.is_whitespace() || back+1 == max_index {
                         return Some(&self.string[i..back]);
                     }
                 }
@@ -139,10 +142,9 @@ impl Tokens {
         let mut count = 0;
 
         for i in &self.column_index {
-            println!("{} -> {}", i.0 , self.token_distribution[*i.1]);
-            count += 1;
-            if count > 50 {
-                break;
+            if self.token_distribution[*i.1] > count {
+                count = self.token_distribution[*i.1];
+                println!("Present max for {} with {}", i.0 , self.token_distribution[*i.1]);
             }
         }
     }
