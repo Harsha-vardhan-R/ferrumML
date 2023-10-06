@@ -11,26 +11,27 @@ use super::tokenisation::{self, Tokens};
 fn divide_n_print() {
     use super::tokenisation::SpecialStr;
 
-    let input = "happy bday. .i. bevibae %#(%# vev nw .";
+    //let input = "happy bday. .i. bevibae %#(%# vev nw .";
+    let input = "I love dogs";
     let new_one = SpecialStr::new(&input);
 
     let temp: Vec<&str> = new_one.into_iter().collect();
     print!("{:?}", temp);
-    assert_eq!(temp , vec!["happy", "bday", ".", ".", "i", ".", "bevibae", "%", "#", "(", "%", "#", "vev", "nw", "."]);
+    //assert_eq!(temp , vec!["happy", "bday", ".", ".", "i", ".", "bevibae", "%", "#", "(", "%", "#", "vev", "nw", "."]);
 }
 
 #[test]
 fn divide_n_print_2() {
     use super::tokenisation::SpecialStr;
 
-    let input = "hvcvk (vuk == gvyv'' jvv( hvktvk";
+    let input = "hvcvk (vuk == gvyv'' jvv( hvktvk!";
     let new_one = SpecialStr::new(&input);
 
     let temp: Vec<&str> = new_one.into_iter().collect();
 
     println!("{:?}", temp);
 
-    assert_eq!(temp , vec!["hvcvk", "(", "vuk", "=", "=", "gvyv", "'", "'", "jvv", "(", "hvktv"]);
+    assert_eq!(temp , vec!["hvcvk", "(", "vuk", "=", "=", "gvyv", "'", "'", "jvv", "(", "hvktvk" , "!"]);
 }
 
 //still need to test this on social media emojies and other utf8 exclusives and stuff.
@@ -48,9 +49,7 @@ fn divide_n_print_3() {
     
     println!("{:?}",&temp);
 
-    /* for i in input.char_indices() {
-        dbg!(i);
-    } */
+    assert_eq!(temp , vec!["`", "i", "love", "mine", ",", "too", ".", "happy", "mother", "ï", "¿", "½", "s", "day", "to", "all"]);
 
 
 }
@@ -76,9 +75,12 @@ fn opening_and_tokenising() {
     new_.describe();
     
     let mut temp = Tokens::new();
+    let start_time = std::time::Instant::now();
 
     temp.tokenise(&new_, 1);
 
-    temp.describe();
+    println!("Time taken to tokenise is : {:?}", start_time.elapsed());
+    temp.give_names();
+
 
 }

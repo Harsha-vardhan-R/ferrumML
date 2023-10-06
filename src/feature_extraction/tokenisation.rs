@@ -4,13 +4,31 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, hash_map::Entry};
 use fastrand::char;
+use rayon::prelude::IntoParallelRefIterator;
+use sprs::CsVec;
 
 use crate::data_frame::{data_type::data_type, data_frame::data_frame};
 
 pub struct Tokens {
-    column_index: HashMap<String, usize>,//used to store the index at which each token is present.
-    token_vector: Vec<Vec<usize>>,//the sparse(typically) matrix which we are going to store of the repetation.
-    token_distribution: Vec<usize>,//store the rarity of the each word in a row matrix.
+    column_index: HashMap<String, sparse_vec_with_count>
+}
+
+#[derive(Debug)]
+//we need to convert into some vec of vec of f32 when training but we will decrease the number of tokens by that time. 
+struct sparse_vec_with_count {
+    count : u32,//frequency of the item.
+    sparse_vector: CsVec<u32>,
+}
+
+impl sparse_vec_with_count {
+    fn distribution(&self) -> u32 {
+        self.count
+    }
+
+    //really inefficient , just use for debugging.
+    fn len(&self) -> usize {
+        self.sparse_vector.iter().count()
+    }
 }
 
 
@@ -63,6 +81,9 @@ impl<'a> Iterator for SpecialStr<'a> {
                 for (back , character_2) in self.string.char_indices().skip(self.back+1) {
                     self.back += 1;
                     if is_special(character_2) || character_2.is_whitespace() || back+1 == max_index {
+                        if back+1 == max_index && !is_special(self.string.chars().last().unwrap()) {
+                            return Some(&self.string[i..max_index]);
+                        }
                         return Some(&self.string[i..back]);
                     }
                 }
@@ -76,77 +97,68 @@ impl<'a> Iterator for SpecialStr<'a> {
 }
 
 
+
 impl Tokens {
 
     pub fn new() -> Tokens {
         Tokens {
             column_index: HashMap::new(),
-            token_vector: vec![vec![]], 
-            token_distribution: vec![] 
         }
     }
 
     //possible only for the string data type.
-    pub fn tokenise(&mut self, frame : &data_frame, column_index : usize) {
+    pub fn tokenise(&mut self, frame : &data_frame, index : usize) {
 
         //not preallocating the memory because we do not know the number of individual words we are going to come across.
         let mut token_distribution: Vec<usize> = vec![];
         let mut count: usize = 0_usize;
-        let mut sparse: Vec<Vec<usize>> = vec![vec![0_usize ; frame.number_of_samples.try_into().unwrap()]];
-        let mut mapper: HashMap<&str, usize> = HashMap::new();
+        
 
-        match &frame.data[column_index] {
+        match &frame.data[index] {
             data_type::Strings(temp) => {
+                let column_index = &mut self.column_index;
                 //for each sentence in the given column.
-                for (i , sentence) in temp.iter().enumerate() {
+                temp.iter().enumerate().for_each(|(string_index , sentence)| {
                     let lower_temp = sentence.to_lowercase();
                     let special_string: SpecialStr = SpecialStr::new(&lower_temp);
                     //comparing each word after making it lowercase.
-                    //going through the special iterator ;)
+                    //going through the special iterator ;)-
                     for word in special_string.into_iter() {
                         //if the word is already occupied then we are going to just add 1 to the token distribution at that index
-                        //or we are going to insert this value with the value 1. 
-                        match self.column_index.entry(word.to_owned()) {
-                            Entry::Occupied(temp) => {
-                                let &index_of = temp.get();//where do we need to locate the word. 
-                                token_distribution[index_of] += 1;
-                                sparse[index_of][i] += 1;
+                        //or we are going to insert this value with the value 1.
+                        match column_index.entry(word.to_owned()) {
+                            //if we already came across this word
+                            Entry::Occupied(mut temp) => {
+                                let to_mod = temp.get_mut();
+                                to_mod.count+=1;
+                                //we are calling unwrap because there is no way the indices vector is empty even after we got here.
+                                if *to_mod.sparse_vector.indices().last().unwrap() == string_index {
+                                    //this still takes log time but couldn't find a better way.
+                                    match to_mod.sparse_vector.get_mut(string_index) {
+                                        Some(temp) => *temp += 1,
+                                        None => (),
+                                    }
+                                } else {
+                                    to_mod.sparse_vector.append(string_index , 1);
+                                }
                             },
+                            //a new word!(i am not that exited tbh, that is just a word of expression, oh you are making me sad :( )
                             Entry::Vacant(mut entry) => {
-                                entry.insert(count);
-                                token_distribution.push(1);
-                                sparse.push(vec![0_usize ; frame.number_of_samples.try_into().unwrap()]);
-                                sparse[count][i] += 1;
-                                count += 1;
+                                entry.insert(sparse_vec_with_count {count: 1, sparse_vector: CsVec::new(frame.number_of_samples as usize , vec![string_index] , vec![1])});
                             },
                         }
                     }
-                
-                }
+                });
             },
             _ => panic!("You cannot tokenise the float or the category data type"),
         }
-
-        self.token_distribution = token_distribution;
-        self.token_vector = sparse;
-
     }
 
-    //need to return some proper stuff
-    //now this is just a placeholder
-    pub fn describe(&self) {
-        //assert!(self.token_distribution.len() != 0 , "You need to first tokenise to able to describe it");
+    
 
-        println!("There are {} unique tokens", self.token_distribution.len());
-
-        let mut count = 0;
-
-        for i in &self.column_index {
-            if self.token_distribution[*i.1] > count {
-                count = self.token_distribution[*i.1];
-                println!("Present max for {} with {}", i.0 , self.token_distribution[*i.1]);
-            }
-        }
+    pub fn give_names(&self) {
+        let temp = self.column_index.get(".").unwrap();
+        print!("{}", temp.count);
     }
 
 
