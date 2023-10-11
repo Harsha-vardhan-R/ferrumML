@@ -1,6 +1,6 @@
 use rayon::prelude::IndexedParallelIterator;
 
-use crate::{file_handling::read_from::read_csv, feature_extraction::tokenisation::is_special};
+use crate::{file_handling::read_from::read_csv, feature_extraction::tokenisation::{is_special, SpecialStrClump}};
 
 use super::tokenisation::{self, Tokens};
 
@@ -51,36 +51,40 @@ fn divide_n_print_3() {
 
     assert_eq!(temp , vec!["`", "i", "love", "mine", ",", "too", ".", "happy", "mother", "ï", "¿", "½", "s", "day", "to", "all"]);
 
-
 }
 
 #[test]
 fn divide_n_print_4() {
     use super::tokenisation::SpecialStr;
 
-    let input = "Journey!? Wow... u just became cooler.  hehe... (is that possible!?)";
-    let new_one = SpecialStr::new(&input);
+    let input = "` i love mine, too . happy motherï¿½s day to all";
+    let new_one = SpecialStrClump::new(&input);
 
     for i in new_one.into_iter() {
         println!("{}", i);
-    }
+    } 
 
     //assert_eq!(temp , vec!["`", "i", "love", "mine", ",", "too", ".", "happy", "mother", "ï", "½", "ay", "al"]);
 
 }
-#[test]
 
+#[test]
 fn opening_and_tokenising() {
-    let new_ = read_csv("C:/Users/HARSHA/Downloads/archive/train.csv", true, false).unwrap();
-    new_.describe();
-    
-    let mut temp = Tokens::new();
     let start_time = std::time::Instant::now();
 
-    temp.tokenise(&new_, 1);
+    let new_ = read_csv(r#"C:\Users\HARSHA\Downloads\archive\train.csv"#, true, true).unwrap();
+    let start_time = std::time::Instant::now();
+
+    new_.describe();
+
+    println!("Time taken to describe is : {:?}", start_time.elapsed());
+    let start_time = std::time::Instant::now();
+
+    let mut temp = Tokens::new();
+
+    temp.tokenise(&new_, 1 , true);
 
     println!("Time taken to tokenise is : {:?}", start_time.elapsed());
-    temp.give_names();
-
+    println!("'...' occurs {} times", temp.get_count("..."));
 
 }

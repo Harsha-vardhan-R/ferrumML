@@ -6,14 +6,14 @@ use crate::{supervised::naive_bayes::gaussian_NB::predict, data_frame::{data_typ
 
 
 //model needs to contain the trait predict for this.
-pub fn accuracy_score<T : predict>(model : &T, X_test: &Vec<Vec<f32>> , y_test: &data_type) -> f32 {
+pub fn accuracy_score<T : predict>(model : &T, X_test: &Vec<Vec<f32>> , y_test: &DataType) -> f32 {
     
     let mut correct = 0;
 
     assert!(X_test.len() == y_test.len() , "The size of the X_test and y_test is not the same");
     
     match y_test {
-        data_type::Category(temp) => {
+        DataType::Category(temp) => {
             for (i , point) in X_test.iter().enumerate() {
                 if model.predict(point) == return_type::Category(temp[i]) {
                     correct += 1;
@@ -21,14 +21,14 @@ pub fn accuracy_score<T : predict>(model : &T, X_test: &Vec<Vec<f32>> , y_test: 
             }
         },
         //this type is generally not validated through this method but,. just in case.
-        data_type::Floats(temp) => {
+        DataType::Floats(temp) => {
             for (i , point) in X_test.iter().enumerate() {
                 if model.predict(point) == return_type::Floats(temp[i]) {
                     correct += 1;
                 }
             }
         },
-        data_type::Strings(temp) => {
+        DataType::Strings(temp) => {
             for (i , point) in X_test.iter().enumerate() {
                 if model.predict(point) == return_type::Strings(temp[i].clone()) {
                     correct += 1;

@@ -7,16 +7,16 @@ use crate::data_frame::{data_type::*, return_type::*};
 
 ///used when the features represent some continuous variable.
 /// we assume that they follow atleast 
-pub struct gaussian_NB {
-    target_classes: Option<data_type>,//we store all the unique target classes , order sensitive. we are going to follow the same order for storing the other parameters.
+pub struct GaussianNb {
+    target_classes: Option<DataType>,//we store all the unique target classes , order sensitive. we are going to follow the same order for storing the other parameters.
     target_class_distributions: Vec<usize>,
     total_number_of_cases: u32,
     means_and_std_devs: Vec<Vec<(f32 , f32)>>,
 }
 
 ///creates a gaussian naive bayes object.
-pub fn gaussian_NB() -> gaussian_NB {
-    gaussian_NB { 
+pub fn gaussian_NB() -> GaussianNb {
+    GaussianNb { 
         target_classes: None, 
         means_and_std_devs: vec![vec![]],
         total_number_of_cases: 0,
@@ -26,7 +26,7 @@ pub fn gaussian_NB() -> gaussian_NB {
 }
 
 pub trait MLalgo {
-    fn fit(&mut self, X_train : &Vec<Vec<f32>> , y_train : &data_type);
+    fn fit(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType);
 }
 
 pub trait predict {
@@ -34,13 +34,13 @@ pub trait predict {
 }
 
 
-impl MLalgo for gaussian_NB {
+impl MLalgo for GaussianNb {
     
-    fn fit(&mut self, X_train : &Vec<Vec<f32>> , y_train : &data_type) {   
+    fn fit(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {   
 
         //dbg!(y_train); 
 
-        if let data_type::Category(temp) = y_train {
+        if let DataType::Category(temp) = y_train {
             
             //creating a hashmap and giving a index to each different category, we may sometimes have the same value for all key value pairs , but it is not worth the risk.
             let mut counter: HashMap<u8, usize> = HashMap::new();
@@ -88,7 +88,7 @@ impl MLalgo for gaussian_NB {
             }
 
             self.means_and_std_devs = output_main;
-            self.target_classes = Some(data_type::Category(in_order_keys));
+            self.target_classes = Some(DataType::Category(in_order_keys));
             self.total_number_of_cases = X_train.len().try_into().unwrap();
             self.target_class_distributions = distribution_count.iter().map(|x| *x as usize).collect();
 
@@ -96,7 +96,7 @@ impl MLalgo for gaussian_NB {
 
         }
 
-        if let data_type::Strings(temp) = y_train {
+        if let DataType::Strings(temp) = y_train {
                 //creating a hashmap and giving a index to each different category, we may sometimes have the same value for all key value pairs , but it is not worth the risk.
                 let mut counter: HashMap<String, usize> = HashMap::new();
                 let mut count = 0_usize;
@@ -141,7 +141,7 @@ impl MLalgo for gaussian_NB {
                 }
     
                 self.means_and_std_devs = output_main;
-                self.target_classes = Some(data_type::Strings(in_order_keys));
+                self.target_classes = Some(DataType::Strings(in_order_keys));
                 self.total_number_of_cases = X_train.len().try_into().unwrap();
                 self.target_class_distributions = distribution_count.iter().map(|x| *x as usize).collect();            
             
@@ -156,7 +156,7 @@ impl MLalgo for gaussian_NB {
 }
 
 
-impl predict for gaussian_NB {
+impl predict for GaussianNb {
 
     fn predict(&self, point : &Vec<f32>) -> return_type {
         //first we are going to calculate the numerator of the posterior for all the class types.
@@ -176,10 +176,10 @@ impl predict for gaussian_NB {
         }
 
         match self.target_classes.as_ref().unwrap() {
-            data_type::Category(temp) => {
+            DataType::Category(temp) => {
                 return return_type::Category(temp[present_max.1 as usize]);
             }
-            data_type::Strings(temp) => {
+            DataType::Strings(temp) => {
                 return return_type::Strings(temp[present_max.1 as usize].clone());
             },
             _ => panic!("No fucking way this reached here"),
@@ -189,7 +189,7 @@ impl predict for gaussian_NB {
 
 }
 
-impl gaussian_NB {
+impl GaussianNb {
     
     pub fn get_gaussian_vector(&self) {
         let mut counter = 0_usize;

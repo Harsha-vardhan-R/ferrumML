@@ -1,11 +1,11 @@
 use std::collections::{HashMap, hash_map::Entry};
-use crate::data_frame::{data_type::data_type, return_type::return_type};
+use crate::data_frame::{data_type::DataType, return_type::return_type};
 
 
 ///Mainly used when the features represent counts or frequencies of different categories.
 /// -for example: like classifying document type, etc...
-pub struct multinomial_NB {
-    target_classes: Option<data_type>,//we store all the unique target classes , order sensitive. we are going to follow the same order for storing the other parameters.
+pub struct MultinomialNb {
+    target_classes: Option<DataType>,//we store all the unique target classes , order sensitive. we are going to follow the same order for storing the other parameters.
     target_class_distributions: Vec<usize>,
     total_number_of_cases: usize,
     count_bin: Vec<Vec<HashMap<i32, usize>>>,
@@ -14,10 +14,10 @@ pub struct multinomial_NB {
 }
 
 ///creating the multinomial_NB object.
-pub fn multinomial_NB() -> multinomial_NB {
+pub fn multinomial_NB() -> MultinomialNb {
     println!("WARNING! This algorithm assumes that your data represents frequency(assumes the values are integers)");
 
-    multinomial_NB {
+    MultinomialNb {
         target_classes: None,
         target_class_distributions: vec![],
         total_number_of_cases: 0,
@@ -27,9 +27,9 @@ pub fn multinomial_NB() -> multinomial_NB {
 }
 
 pub trait MLalgo {
-    fn fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &data_type);
+    fn fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &DataType);
     ///uses kernel density estimation rather than just depending on the exact particular probaility.
-    fn smooth_fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &data_type);
+    fn smooth_fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &DataType);
 }
 
 pub trait predict {
@@ -37,13 +37,13 @@ pub trait predict {
 }
 
 //TODO -- the functions reallly have big if else statements which is not good but i am not finding any way to make it better.
-impl MLalgo for multinomial_NB {
+impl MLalgo for MultinomialNb {
     
     ///Method to be called on the multinomial_NB struct , will fit the model according to the given data.
     ///assumes the data is the frequency of something occuring so, will be treated as an integer.
-    fn fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &data_type) {
+    fn fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &DataType) {
 
-        if let data_type::Category(temp) = y_train {
+        if let DataType::Category(temp) = y_train {
             
             //creating a hashmap and giving a index to each different category.
             let mut counter: HashMap<u8, usize> = HashMap::new();
@@ -85,14 +85,14 @@ impl MLalgo for multinomial_NB {
             }
 
             self.count_bin = output_main;
-            self.target_classes = Some(data_type::Category(in_order_keys));
+            self.target_classes = Some(DataType::Category(in_order_keys));
             self.total_number_of_cases = X_train.len().try_into().unwrap();
             self.target_class_distributions = distribution_count.iter().map(|x| *x as usize).collect();
             self.word_count_bin = word_count;
 
             return;
 
-        } else if let data_type::Strings(temp) = y_train {
+        } else if let DataType::Strings(temp) = y_train {
                 
             //creating a hashmap and giving a index to each different category.
             let mut counter: HashMap<String, usize> = HashMap::new();
@@ -134,7 +134,7 @@ impl MLalgo for multinomial_NB {
             }
             
             self.count_bin = output_main;
-            self.target_classes = Some(data_type::Strings(in_order_keys));
+            self.target_classes = Some(DataType::Strings(in_order_keys));
             self.total_number_of_cases = X_train.len().try_into().unwrap();
             self.target_class_distributions = distribution_count.iter().map(|x| *x as usize).collect();
             self.word_count_bin = word_count;
@@ -149,7 +149,7 @@ impl MLalgo for multinomial_NB {
 
     //we need to implement another kind of fit for which we can use the
     ///using the kernel smoothing technique
-    fn smooth_fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &data_type) {
+    fn smooth_fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &DataType) {
         
     }
 
@@ -157,7 +157,7 @@ impl MLalgo for multinomial_NB {
 
 //TODO -- way too many type castings, please improve it the code looks messy as shit.
 
-impl predict for multinomial_NB {
+impl predict for MultinomialNb {
     
     fn predict (&self, x : &Vec<f32>) -> return_type {
         
@@ -179,10 +179,10 @@ impl predict for multinomial_NB {
         }
 
         match self.target_classes.as_ref().unwrap() {
-            data_type::Category(temp) => {
+            DataType::Category(temp) => {
                 return return_type::Category(temp[present_max.1 as usize]);
             }
-            data_type::Strings(temp) => {
+            DataType::Strings(temp) => {
                 return return_type::Strings(temp[present_max.1 as usize].clone());
             },
             _ => panic!("First train this data then use the predict method, and also you can only train this data on categorical or string targets"),

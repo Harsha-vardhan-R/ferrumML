@@ -133,7 +133,7 @@ impl k_means_spec<'_> {
     /// data_frame.head();
     /// '''
     /// prints the feature names and the 10 points from the beginning of the data_frame.
-    /// to get an insight, will reflect if you dropped rows or columns in the dataframe.
+    /// to get an insight, will reflect if you dropped rows or columns in the data_frame.
     /// remember this is just READEBLE it does not look good in any way.
     pub fn head(&self) {
         //first we will print the headers
@@ -142,8 +142,8 @@ impl k_means_spec<'_> {
             print!("      ");
         }
         println!("");
-        //now we print the first 10 rows of the dataframe 
-        //if the dataframe is smaller than 10 samples then.we have to consider all the posibilities right.
+        //now we print the first 10 rows of the data_frame 
+        //if the data_frame is smaller than 10 samples then.we have to consider all the posibilities right.
         let max = match self.number_of_samples {
             n if n >= 9 => 9,
             _ => self.number_of_samples - 1,
@@ -185,7 +185,7 @@ impl k_means_spec<'_> {
         which_features_modified.sort();
         which_features_modified.reverse();
 
-        //dropping columns in the dataframe.
+        //dropping columns in the data_frame.
         self.data.par_iter_mut().for_each(|sample_point| {
             for i in &which_features_modified {
                 sample_point.data.remove(*i);
@@ -280,7 +280,7 @@ impl k_means_spec<'_> {
             Some((lower_limit , upper_limit)) => generate_k_centroids(self.k, self.number_of_features, lower_limit, upper_limit),
         };
         //if the data is not modified we will just use the original data frame.
-        //let mut present_dataframe = &self.data;
+        //let mut present_data_frame = &self.data;
         self.threshold = threshold;
         let mut count = 1;
         //clustering in k means until we get the centroid points moving less than threshold value after one iteration.

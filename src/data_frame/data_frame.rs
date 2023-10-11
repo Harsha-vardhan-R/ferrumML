@@ -1,4 +1,4 @@
-#![allow(non_camel_case_types, non_snake_case, non_camel_case_types)]
+#![allow(non_snake_case)]
 
 use std::{error::Error, fs::File, io::BufReader};
 use csv::ReaderBuilder;
@@ -6,13 +6,13 @@ use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator, ParallelBridg
 use std::collections::HashMap;
 use rayon::prelude;
 use rand::seq::SliceRandom;
-use super::data_type::data_type;
+use super::data_type::DataType;
 
 //TODO -- we still need to find a way to normalize a external point -- in progress transform , 
 //we basically store the history of what happned to the each column before and then we are going to do the same on then present.
 
-pub struct data_frame {
-    pub data: Vec<data_type>,
+pub struct DataFrame {
+    pub data: Vec<DataType>,
     pub headers: Vec<String>,
     pub number_of_features: u32,
     pub number_of_samples: u32,
@@ -23,7 +23,7 @@ pub struct data_frame {
 
 //data frame can be spitted and trained on.
 pub trait train_test_split {
-    fn train_test_split(&self , test_size : f32 , target_index : usize , shuffle : bool ) -> (Vec<Vec<f32>> , data_type , Vec<Vec<f32>> , data_type);
+    fn train_test_split(&self , test_size : f32 , target_index : usize , shuffle : bool ) -> (Vec<Vec<f32>> , DataType , Vec<Vec<f32>> , DataType);
 }
 
 pub fn get_headers(path : &str , which_features: &Vec<usize> , number_of_features : usize) -> Vec<String> {
@@ -56,7 +56,7 @@ pub fn get_headers(path : &str , which_features: &Vec<usize> , number_of_feature
 }
 
 //describing the data frame in different ways.
-impl data_frame {
+impl DataFrame {
 
     pub fn head(&self) {
 
@@ -72,9 +72,9 @@ impl data_frame {
         for i in 0..5 {
             for element in &self.data {
                 match element{
-                    data_type::Floats(x) => {print!("{}                  ", x[i])},
-                    data_type::Strings(y) => {print!("{}                  ", y[i])},
-                    data_type::Category(y) => {print!("{}                  ", y[i])},
+                    DataType::Floats(x) => {print!("{}                  ", x[i])},
+                    DataType::Strings(y) => {print!("{}                  ", y[i])},
+                    DataType::Category(y) => {print!("{}                  ", y[i])},
                 }
             }
             println!();
@@ -106,7 +106,7 @@ impl data_frame {
         for i in &self.data {
             
             match i {
-                data_type::Floats(temp) => {
+                DataType::Floats(temp) => {
                     //here we are printing the type column name , type , max , min , avg_value ;todo : 25% , 50 % ,75%
                     let mean = 0.0_f32;
                     
@@ -121,7 +121,7 @@ impl data_frame {
                     println!("{}",padded_float);
                 },
 
-                data_type::Strings(temp) => {
+                DataType::Strings(temp) => {
                     let mut counter: HashMap<&str, u32> = HashMap::new();
 
                     for i in temp {
@@ -143,7 +143,7 @@ impl data_frame {
                       
                 },
 
-                data_type::Category(temp) => {
+                DataType::Category(temp) => {
                     let mut counter: HashMap<&u8, u32> = HashMap::new();
 
                     for i in temp.iter() {
@@ -178,7 +178,7 @@ impl data_frame {
         let number_width = 3;
 
         match &self.data[column_index] {
-            data_type::Floats(temp) => {
+            DataType::Floats(temp) => {
                 //here we are printing the type column name , type , max , min , avg_value ;todo : 25% , 50 % ,75%
                 let mean = 0.0_f32;
                 
@@ -198,7 +198,7 @@ impl data_frame {
                 println!();
             },
 
-            data_type::Strings(temp) => {
+            DataType::Strings(temp) => {
                 let mut counter: HashMap<&str, u32> = HashMap::new();
 
                 for i in temp {
@@ -227,7 +227,7 @@ impl data_frame {
                   
             },
 
-            data_type::Category(temp) => {
+            DataType::Category(temp) => {
                 let mut counter: HashMap<&u8, u32> = HashMap::new();
 
                 for i in temp {
@@ -266,16 +266,16 @@ impl data_frame {
 
         for (i , column) in self.data.iter().enumerate() {
             match column {
-                data_type::Category(temp) => {
+                DataType::Category(temp) => {
                     type_of_data.push(2);//you will never get null or nan in this category.
                     
                 },
-                data_type::Floats(temp) => {
+                DataType::Floats(temp) => {
                     type_of_data.push(0);
                     let num_of_null = temp.iter().filter(|x| x.is_nan()).count();
                     number_of_null[i] = num_of_null.try_into().unwrap();
                 },
-                data_type::Strings(temp) => {
+                DataType::Strings(temp) => {
                     type_of_data.push(1);
                     let mut num_of_null = 0_u32;
                     for i in temp.iter() {
@@ -304,7 +304,7 @@ impl data_frame {
 }
 
 //column ad row manipulation.
-impl data_frame {
+impl DataFrame {
     
     pub fn rename_columns(&mut self, strings : Vec<&str>) {
 
@@ -326,7 +326,7 @@ impl data_frame {
 
         //giving each unique term an index value, which is basically an encoding.
         match &self.data[index] {
-            data_type::Strings(temp) => {
+            DataType::Strings(temp) => {
                 for i in temp {
                     if !indexer.contains_key(i) {
                         indexer.insert(i.to_owned(), count);
@@ -334,10 +334,10 @@ impl data_frame {
                     }
                 }
             },
-            data_type::Category(temp) => {
+            DataType::Category(temp) => {
                 panic!("columns with the type category cannot be encoded");
             },
-            data_type::Floats(temp) => {
+            DataType::Floats(temp) => {
                 panic!("columns with the type float cannot be encoded");
             },
         }
@@ -348,17 +348,17 @@ impl data_frame {
         let temp : &Vec<String> ;
 
         match &self.data[index] {
-            data_type::Strings(temp_) => {
+            DataType::Strings(temp_) => {
                 temp = temp_;
             },
-            data_type::Category(_) => panic!("The items in this row are already of the category data_type, no need to encode."),
-            data_type::Floats(_) => panic!("You cannot encode float values."),
+            DataType::Category(_) => panic!("The items in this row are already of the category data_type, no need to encode."),
+            DataType::Floats(_) => panic!("You cannot encode float values."),
         }
         for (i , element) in temp.iter().enumerate() {
             new_vector[i] = *indexer.get(element).unwrap();
         }    
 
-        let new_replacer = data_type::Category(new_vector);
+        let new_replacer = DataType::Category(new_vector);
 
         self.data[index] = new_replacer;
 
@@ -378,7 +378,7 @@ impl data_frame {
 
         //giving each unique term an index value, which is basically an encoding.
         match &self.data[index] {
-            data_type::Strings(temp) => {
+            DataType::Strings(temp) => {
                 for i in temp {
                     if !indexer.contains_key(i) {
                         indexer.insert(i.to_owned(), count);
@@ -386,10 +386,10 @@ impl data_frame {
                     }
                 }
             },
-            data_type::Category(temp) => {
+            DataType::Category(temp) => {
                 panic!("columns with the type category cannot be encoded");
             },
-            data_type::Floats(temp) => {
+            DataType::Floats(temp) => {
                 panic!("columns with the type float cannot be encoded");
             },
         }
@@ -400,17 +400,17 @@ impl data_frame {
         let temp: &Vec<String>;
 
         match &self.data[index] {
-            data_type::Strings(temp_) => {
+            DataType::Strings(temp_) => {
                 temp = temp_;
             },
-            data_type::Category(_) => panic!("The items in this row are already of the category data_type, no need to encode."),
-            data_type::Floats(_) => panic!("You cannot encode float values."),
+            DataType::Category(_) => panic!("The items in this row are already of the category data_type, no need to encode."),
+            DataType::Floats(_) => panic!("You cannot encode float values."),
         }
         for (i , element) in temp.iter().enumerate() {
             new_vector[i] = *indexer.get(element).unwrap();
         } 
 
-        let new_replacer = data_type::Floats(new_vector);
+        let new_replacer = DataType::Floats(new_vector);
 
         self.data[index] = new_replacer;
 
@@ -443,22 +443,22 @@ impl data_frame {
         self.data.par_iter_mut().enumerate().for_each(|(i , column)|
             //here i signifies the column index of the number.
             match column {
-                data_type::Floats(temp) => {
+                DataType::Floats(temp) => {
                     for j in 0..number_of_samples_here {
                         temp[j] = (temp[j] - self.min_vector[i]) / min_max[i];
                     }
                 },
                 //here we need to create a new float type column and replace the current one with it.
-                data_type::Category(temp) => {
+                DataType::Category(temp) => {
                     let mut toreplace = vec![0.0_f32 ; self.number_of_samples.try_into().unwrap()];
                     for j in 0..number_of_samples_here {
                         toreplace[j] = (temp[j] as f32 - self.min_vector[i]) / min_max[i];
                     }
                     //replacing the present column with a data_type::Float type, cause you need floats to represent the column.
-                    *column = data_type::Floats(toreplace); 
+                    *column = DataType::Floats(toreplace); 
                 },
                 //we do not modify the string typed stuff in any way.
-                data_type::Strings(_) => {
+                DataType::Strings(_) => {
                     ();
                 },
             }
@@ -487,13 +487,13 @@ impl data_frame {
         //removing the value at that row in every column.
         self.data.par_iter_mut().for_each(|i|
             match i {
-                data_type::Category(temp) => {
+                DataType::Category(temp) => {
                     temp.remove(index);
                 },
-                data_type::Floats(temp) => {
+                DataType::Floats(temp) => {
                     temp.remove(index);
                 },
-                data_type::Strings(temp) => {
+                DataType::Strings(temp) => {
                     temp.remove(index);
                 }
             }
@@ -517,7 +517,7 @@ impl data_frame {
         which_features_modified.sort();
         which_features_modified.reverse();
 
-        //dropping columns in the dataframe.
+        //dropping columns in the data_frame.
         for index in which_features_modified.iter() {
             self.data.remove(*index);
         }
@@ -563,7 +563,7 @@ impl data_frame {
 }
 
 //interpolation functions
-impl data_frame {
+impl DataFrame {
 
     ///interpolates all the missing or nan values.
     /// presently there is only one type , need to implement more types.
@@ -580,7 +580,7 @@ impl data_frame {
 
         self.data.iter_mut().for_each(|column|
             match column {
-                data_type::Strings(temp) => {
+                DataType::Strings(temp) => {
                     let mut last_non_none = temp[0].clone();
                     for (i , point) in temp.iter_mut().enumerate() {
                         if point == "null" || point == "None" || point == "" || point == "none" {
@@ -590,7 +590,7 @@ impl data_frame {
                         }
                     }
                 },
-                data_type::Floats(temp) => {
+                DataType::Floats(temp) => {
                     let mut last_non_none = temp[0];
                     for (i , point) in temp.iter_mut().enumerate() {
                         if point.is_nan() {
@@ -600,7 +600,7 @@ impl data_frame {
                         }
                     }
                 },
-                data_type::Category(temp) => {
+                DataType::Category(temp) => {
                     //this category generally does not have nan or nulls.
                     panic!("program breaking bug found here.");
                 },
@@ -611,7 +611,7 @@ impl data_frame {
 }
 
 //train test splitter
-impl data_frame {
+impl DataFrame {
     ///get the index at which the label is located in the data set.
     pub fn get_target_index(&self , target_label : &str) -> Option<usize> {
         for (i , label) in self.headers.iter().enumerate() {
@@ -626,7 +626,7 @@ impl data_frame {
     //target index is the index you want as the target variable.
     //shuffle -> shuffle randomly shuffles the data points, still no random seed option.
     //after this function , we definetely know that the training is going to be on a vec<vec<f32>> and the target is going to be a data_type.
-    pub fn train_test_split(&self , test_size : f32 , target_index : usize , shuffle : bool ) -> (Vec<Vec<f32>> , data_type , Vec<Vec<f32>> , data_type) {
+    pub fn train_test_split(&self , test_size : f32 , target_index : usize , shuffle : bool ) -> (Vec<Vec<f32>> , DataType , Vec<Vec<f32>> , DataType) {
 
         let test_length = (test_size * self.number_of_samples as f32) as usize;
         let train_length = self.number_of_samples as usize - test_length;
@@ -659,7 +659,7 @@ impl data_frame {
 
         for (enumerated , i) in feature_vector.iter().enumerate() {
             match &self.data[*i] {
-                data_type::Category(temp) => {
+                DataType::Category(temp) => {
                     for j in 0..train_length {
                         X_train[j][enumerated] = temp[all_rows[j]] as f32;
                     }
@@ -667,7 +667,7 @@ impl data_frame {
                         X_test[j - train_length][enumerated] = temp[all_rows[j]] as f32;
                     }
                 },
-                data_type::Floats(temp) => {
+                DataType::Floats(temp) => {
                     for j in 0..train_length {
                         X_train[j][enumerated] = temp[all_rows[j]];
                     }
@@ -675,7 +675,7 @@ impl data_frame {
                         X_test[j - train_length][enumerated] = temp[all_rows[j]];
                     }
                 },
-                data_type::Strings(_) => {
+                DataType::Strings(_) => {
                     panic!("You cannot train with string types , to use this attribute first convert it into a category type");
                 }
             }
@@ -683,33 +683,33 @@ impl data_frame {
 
 
         
-        if let data_type::Category(temp) = &self.data[target_index] {
+        if let DataType::Category(temp) = &self.data[target_index] {
             let mut clone = temp.clone();
             for (i , j) in all_rows.iter().enumerate() {
                 clone[i] = temp[*j];
             }
-            let y_train = data_type::Category(clone[0..train_length].to_vec());
-            let y_test = data_type::Category(clone[train_length..sample_number].to_vec());
+            let y_train = DataType::Category(clone[0..train_length].to_vec());
+            let y_test = DataType::Category(clone[train_length..sample_number].to_vec());
             return (X_train  , y_train , X_test , y_test);
         } 
         
-        else if let data_type::Floats(temp) = &self.data[target_index] {
+        else if let DataType::Floats(temp) = &self.data[target_index] {
             let mut clone = temp.clone();
             for (i , j) in all_rows.iter().enumerate() {
                 clone[i] = temp[*j];
             }
-            let y_train = data_type::Floats(clone[0..train_length].to_vec());
-            let y_test = data_type::Floats(clone[train_length..sample_number].to_vec());
+            let y_train = DataType::Floats(clone[0..train_length].to_vec());
+            let y_test = DataType::Floats(clone[train_length..sample_number].to_vec());
             return (X_train  , y_train , X_test , y_test);
         } 
         
-        else if let data_type::Strings(temp) = &self.data[target_index] {
+        else if let DataType::Strings(temp) = &self.data[target_index] {
             let mut clone = temp.clone();
             for (i , j) in all_rows.iter().enumerate() {
                 clone[i] = temp[*j].clone();
             }
-            let y_train = data_type::Strings(clone[0..train_length].to_vec());
-            let y_test = data_type::Strings(clone[train_length..sample_number].to_vec());
+            let y_train = DataType::Strings(clone[0..train_length].to_vec());
+            let y_test = DataType::Strings(clone[train_length..sample_number].to_vec());
             return (X_train  , y_train , X_test , y_test);
         }
         
@@ -722,7 +722,7 @@ impl data_frame {
 }
 
 //transform point
-impl data_frame {
+impl DataFrame {
     ///if you transform the data set before the train test split then you need to do the 
     ///exact transformation on an external point if you want to predict it, this functions should be used for it.
     //first we are going to store the differrent transformations then we are going to apply that to the new point here.

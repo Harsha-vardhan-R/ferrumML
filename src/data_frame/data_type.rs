@@ -9,7 +9,7 @@
 //a custom iterator which returns an iterator to the mutable reference on the objects .
 
 #[derive(Debug, Clone)]
-pub enum data_type {
+pub enum DataType {
     Strings(Vec<String>),
     Floats(Vec<f32>),
     Category(Vec<u8>),//even if we have only bools or 0 and 1 values a vector of bools will take same amount of space in the memory as of a vector with u8 numbers.
@@ -24,12 +24,12 @@ pub trait length {
 
 
 
-impl length for data_type {
+impl length for DataType {
     fn len(&self) -> usize {
         match self {
-            data_type::Category(temp) => temp.len(),
-            data_type::Floats(temp) => temp.len(),
-            data_type::Strings(temp) => temp.len(),
+            DataType::Category(temp) => temp.len(),
+            DataType::Floats(temp) => temp.len(),
+            DataType::Strings(temp) => temp.len(),
         }
     }
 }
@@ -39,16 +39,16 @@ pub trait print_at_index {
 }
 
 
-impl print_at_index for data_type {
+impl print_at_index for DataType {
     fn print_at(&self , index : usize) -> () {
         match &self {
-            data_type::Strings(temp) => {
+            DataType::Strings(temp) => {
                 print!("{:?}   :  ",temp[index]);
             },
-            data_type::Floats(temp) => {
+            DataType::Floats(temp) => {
                 print!("{:?}   :  ",temp[index]);
             },
-            data_type::Category(temp) => {
+            DataType::Category(temp) => {
                 print!("{:?}   :  ",temp[index]);
             },
         }
