@@ -72,7 +72,7 @@ fn divide_n_print_4() {
 fn opening_and_tokenising() {
     let start_time = std::time::Instant::now();
 
-    let new_ = read_csv(r#"C:\Users\HARSHA\Downloads\archive\train.csv"#, true, true).unwrap();
+    let new_ = read_csv(r#"C:\Users\HARSHA\Downloads\archive\train.csv"#, true, false).unwrap();
     let start_time = std::time::Instant::now();
 
     new_.describe();
@@ -86,5 +86,14 @@ fn opening_and_tokenising() {
 
     println!("Time taken to tokenise is : {:?}", start_time.elapsed());
     println!("'...' occurs {} times", temp.get_count("..."));
+
+    //temp.temp();
+
+    temp.get_stats();
+
+    temp.remove_weightless(1);
+
+    temp.temp();
+    temp.get_stats();
 
 }

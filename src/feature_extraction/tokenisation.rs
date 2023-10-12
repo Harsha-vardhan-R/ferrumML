@@ -218,6 +218,8 @@ impl Tokens {
                         false => SpecialStrings::DivideSpecial(SpecialStr::new(&lower_temp)),
                         true => SpecialStrings::ClumpSpecial(SpecialStrClump::new(&lower_temp))
                     };
+
+                    count += 1;
                     
                     //comparing each word after making it lowercase.
                     //going through the special iterator ;)-
@@ -255,19 +257,44 @@ impl Tokens {
     ///to get the statistics about the tokens.
     pub fn get_stats(&self) {
         println!("Total number of tokens : {}", self.column_index.len());
-
-
     }
-
-    //wiki def (tf-idf) : A formula that aims to define the importance of a keyword or phrase within a document or a web page.
-
-
-
 
     ///Returns the number of times an individual token appears in all the input strings.
     pub fn get_count(&self , token_name : &str) -> u32 {
-        let temp = self.column_index.get(token_name).unwrap();
-        temp.count
+        let temp = self.column_index.get(token_name);
+        match temp {
+            Some(temp) => temp.count,
+            None => 0,
+        }
+    }
+
+    pub fn temp(&self) {
+        for (index , element) in self.column_index.iter().enumerate() {
+            print!("{:?}", element.0);
+            if index > 1000 {
+                break;
+            }
+        }
+    }
+
+    ///removes the tokens which occur less than r equal to a certain threshold number of times all togather.
+    pub fn remove_weightless(&mut self, threshold  : u32) {
+        let mut count = 0;
+        
+        let keys : Vec<String> = self.column_index.iter().filter(|(_ , value)| value.count <= threshold).map(|(key , _)| key.clone()).collect();
+        count = keys.len();
+
+        for key in keys {
+            self.column_index.remove(&key);
+        }
+
+        println!("#Found {} values occur less than {} times, Removed.", count , threshold);
+
+    }
+    
+    //wiki def : A formula that aims to define the importance of a keyword or phrase within a document or a web page.
+    pub fn weight_terms(&mut self, target_index : usize, weight_scheme : &str) {
+
     }
 
 }
