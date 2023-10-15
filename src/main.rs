@@ -10,6 +10,8 @@ pub mod preprocessing {
     
 }
 
+pub mod trait_definition;
+
 pub mod n_dimen {
     pub mod n_dimen;
 }

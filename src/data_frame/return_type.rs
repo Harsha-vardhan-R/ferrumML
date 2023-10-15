@@ -2,19 +2,19 @@
 
 #[derive(Debug)]
 //this is used while returning from a predict function.
-pub enum return_type {
+pub enum ReturnType {
     Strings(String),
     Floats(f32),
     Category(u8),
 }
 
 
-impl PartialEq for return_type {
+impl PartialEq for ReturnType {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (return_type::Strings(s1), return_type::Strings(s2)) => s1 == s2,
-            (return_type::Floats(f1), return_type::Floats(f2)) => f1 == f2,
-            (return_type::Category(c1), return_type::Category(c2)) => c1 == c2,
+            (ReturnType::Strings(s1), ReturnType::Strings(s2)) => s1 == s2,
+            (ReturnType::Floats(f1), ReturnType::Floats(f2)) => f1 == f2,
+            (ReturnType::Category(c1), ReturnType::Category(c2)) => c1 == c2,
             _ => false, // Handle other cases or mismatched variants
         }
     }

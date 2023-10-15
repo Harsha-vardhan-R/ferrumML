@@ -1,17 +1,19 @@
 use std::time;
 
-use crate::{supervised::naive_bayes::gaussian_NB::{*}, file_handling::read_from::read_csv, evaluation::accuracy::accuracy_score};
+use crate::{file_handling::read_from::read_csv, evaluation::accuracy::accuracy_score, supervised::naive_bayes::gaussian_NB::GaussianNb, trait_definition::MLalgo};
+
+
 
 
 #[test]
 fn test_sample_gaussian() {
     let start_time = time::Instant::now();
-    let mut data = read_csv("C:/Users/HARSHA/Downloads/mnist.csv", true , true).unwrap(); 
+    let mut data = read_csv(r#" "#, true , true).unwrap(); 
     print!("loading the data : {:?}", start_time.elapsed());
     //dalnta.head();
     let h = data.train_test_split(0.1, data.get_target_index("label").unwrap() , true);
     println!("splitting the data : {:?}", start_time.elapsed());
-    let mut hava = gaussian_NB();
+    let mut hava = GaussianNb::new();
     hava.fit(&h.0, &h.1);
     println!("fitting the data : {:?}", start_time.elapsed());
     dbg!(accuracy_score(&hava, &h.2, &h.3));

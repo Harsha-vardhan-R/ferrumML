@@ -306,12 +306,19 @@ impl DataFrame {
 //column ad row manipulation.
 impl DataFrame {
     
-    pub fn rename_columns(&mut self, strings : Vec<&str>) {
+    ///setting the headers, if already exists, 
+    /// will replace the given stuff
+    pub fn set_headers(&mut self, strings : Vec<&str>) {
+        assert!(strings.len() == self.number_of_features as usize , "The vector size should be equal to the number of features");
+        let present:Vec<String> = vec![];
 
-        for i in 0..self.headers.len() {
-            self.headers[i] = strings[i].to_owned();
-        }       
-        
+        self.headers = strings.iter().map(|x| x.to_string()).collect();
+    }
+
+    ///set a particular header to a different value.
+    /// may not work properly if there are no headers to begin with , you may want to use the 'set_headers' method.
+    pub fn change_header(&mut self, index : usize, header : &str) {
+        self.headers[index] = header.to_string();
     }
 
     //here we take the name of the name of the column and turn the values into a particular encoding.

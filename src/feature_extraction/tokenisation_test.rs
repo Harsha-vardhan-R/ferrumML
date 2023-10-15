@@ -1,8 +1,10 @@
-use rayon::prelude::IndexedParallelIterator;
+use crate::{feature_extraction::tokenisation::{SpecialStrClump , SpecialStr, Tokens}, file_handling::read_from::read_csv};
 
-use crate::{file_handling::read_from::read_csv, feature_extraction::tokenisation::{is_special, SpecialStrClump}};
 
-use super::tokenisation::{self, Tokens};
+
+
+
+
 
 #[cfg(test)]
 
@@ -55,10 +57,10 @@ fn divide_n_print_3() {
 
 #[test]
 fn divide_n_print_4() {
-    use super::tokenisation::SpecialStr;
 
     let input = "` i love mine, too . happy motherï¿½s day to all";
     let new_one = SpecialStrClump::new(&input);
+
 
     for i in new_one.into_iter() {
         println!("{}", i);
@@ -69,20 +71,38 @@ fn divide_n_print_4() {
 }
 
 #[test]
+fn divide_n_print_5() {
+
+    let input = "你好, 这是一个随机生成的中文UTF-8字符串。";
+    let new_one = SpecialStrClump::new(&input);
+
+    for i in new_one.into_iter() {
+        println!("{}", i);
+    } 
+
+    //assert_eq!(temp , vec!["`", "i", "love", "mine", ",", "too", ".", "happy", "mother", "ï", "½", "ay", "al"]);
+
+}
+
+
+#[test]
 fn opening_and_tokenising() {
+
+    let mut new_ = read_csv(r#"C:\Users\HARSHA\Downloads\archive\train.csv"#, true, false).unwrap();
     let start_time = std::time::Instant::now();
 
-    let new_ = read_csv(r#"C:\Users\HARSHA\Downloads\archive\train.csv"#, true, false).unwrap();
-    let start_time = std::time::Instant::now();
+    new_.set_headers(vec!["texthash", "text" , "selected_text" , "sentiment_target" ,"time", "age of user" , "country" , "population" , "area" , "density" ]);
 
     new_.describe();
+
+    new_.describe_the("text", false);
 
     println!("Time taken to describe is : {:?}", start_time.elapsed());
     let start_time = std::time::Instant::now();
 
     let mut temp = Tokens::new();
 
-    temp.tokenise(&new_, 1 , true);
+    temp.tokenise(&new_, 2 , "clump_special");
 
     println!("Time taken to tokenise is : {:?}", start_time.elapsed());
     println!("'...' occurs {} times", temp.get_count("..."));
@@ -93,7 +113,14 @@ fn opening_and_tokenising() {
 
     temp.remove_weightless(1);
 
-    temp.temp();
+    //temp.stemm_tokens();
+
+    //temp.temp();
     temp.get_stats();
+
+    temp.remove_special(0);
+
+    temp.get_stats();
+    println!("'...' occurs {} times", temp.get_count("..."));
 
 }

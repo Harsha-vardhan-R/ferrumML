@@ -1,5 +1,5 @@
 [package]
-name = "ferrumAI"
+name = "ferrumML"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,6 +13,7 @@ plotlib = "*"
 rand = "*"
 rayon = "*"
 sprs = "*"
+rust-stemmers = "*"
 
 [profile.dev]
 opt-level = 3

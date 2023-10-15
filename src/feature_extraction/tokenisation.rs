@@ -1,13 +1,17 @@
 //!FEATURE EXTRACTION:
 //!Extract the wanted attributes from the data.
-//! Mainly tokenisation, token importance ranking.
+//! >Tokenise the strings
+//! >Manipulate them as wanted.
+//! >Stemming/lemmatising the tokens.(rust-stemmers)
+//! >Weighting the importance of the tokens using different algorithms like (tf-idf , BM-25 etc...)
+//! >Turning this into a vec<vec<f32>> for training some model.
 
 
 use std::collections::{HashMap, hash_map::Entry};
 use fastrand::char;
-use rayon::prelude::IntoParallelRefIterator;
 use sprs::CsVec;
 use crate::data_frame::{data_type::DataType, data_frame::DataFrame};
+use rust_stemmers::{Algorithm , Stemmer};
 
 pub struct Tokens {
     column_index: HashMap<String, SparseVecWithCount>
@@ -19,7 +23,6 @@ pub struct Tokens {
 struct SparseVecWithCount {
     count : u32,//frequency of the item.
     sparse_vector: CsVec<u32>,
-    TfIdf : Option<Vec<usize>>
 }
 
 impl SparseVecWithCount {
@@ -90,15 +93,15 @@ impl<'a> SpecialStrClump<'a> {
 //to split at all the places which are special.
 //but we need to give some special importance to the '?', '!', '', ''
 //anything which is not a alphanumeric or a whitespace.
+//but this means we only consider the english letters and all the other language letters will be divided into individual or clumped. 
 pub fn is_special(c: char) -> bool {
     !c.is_ascii_alphanumeric() && !c.is_whitespace()
 }
 
-//this iterator divides into "I am an assHoLe!. .." into an iterator which gives out ("i" , "am", "an" , "assHoLe" , "!", ".", ".", ".")(they won't be lowercase , but that happens in the tokeniser)
+//this iterator divides into "I am an assHoLe!. .." into an iterator which gives out ("i" , "am", "an" , "assHoLe" , "!", ".", ".", ".")(they won't be lowercase ,that happens in the tokeniser)
 //we are going to split at the whitespaces and any special characters.
 
-
-//TODO = we also probably need some variation of this which return the consecutive special chars as a single substring.'cause generally 
+//the divide_special iterator. 
 impl<'a> Iterator for SpecialStr<'a> {
     type Item = &'a str;
 
@@ -200,7 +203,7 @@ impl Tokens {
 
     ///Tokenise a certain column of the data_frame
     ///possible only for the string data type.
-    pub fn tokenise(&mut self, frame : &DataFrame, index : usize, clump_special : bool) {
+    pub fn tokenise(&mut self, frame : &DataFrame, index : usize, iterator_type : &str) {
 
         //not preallocating the memory because we do not know the number of individual words we are going to come across.
         let mut token_distribution: Vec<usize> = vec![];
@@ -214,9 +217,10 @@ impl Tokens {
                 temp.iter().enumerate().for_each(|(string_index , sentence)| {
                     let lower_temp = sentence.to_lowercase();
 
-                    let special_string: SpecialStrings = match clump_special {
-                        false => SpecialStrings::DivideSpecial(SpecialStr::new(&lower_temp)),
-                        true => SpecialStrings::ClumpSpecial(SpecialStrClump::new(&lower_temp))
+                    let special_string: SpecialStrings = match iterator_type {
+                        "divide_special" => SpecialStrings::DivideSpecial(SpecialStr::new(&lower_temp)),
+                        "clump_special" => SpecialStrings::ClumpSpecial(SpecialStrClump::new(&lower_temp)),
+                        _ => panic!("no iterator found with this name"),
                     };
 
                     count += 1;
@@ -244,7 +248,7 @@ impl Tokens {
                             },
                             //a new word!(i am not that exited tbh, that is just a word of expression, oh you are making me sad :( )
                             Entry::Vacant(mut entry) => {
-                                entry.insert(SparseVecWithCount {count: 1, sparse_vector: CsVec::new(frame.number_of_samples as usize , vec![string_index] , vec![1]) , TfIdf : None});
+                                entry.insert(SparseVecWithCount {count: 1, sparse_vector: CsVec::new(frame.number_of_samples as usize , vec![string_index] , vec![1])});
                             },
                         }
                     }
@@ -268,32 +272,103 @@ impl Tokens {
         }
     }
 
+    //function to delete.
     pub fn temp(&self) {
         for (index , element) in self.column_index.iter().enumerate() {
-            print!("{:?}", element.0);
+            eprint!("{:?}", element.0);
             if index > 1000 {
                 break;
             }
         }
     }
 
-    ///removes the tokens which occur less than r equal to a certain threshold number of times all togather.
-    pub fn remove_weightless(&mut self, threshold  : u32) {
+    ///returns the number of tokens that occur less than or equal to the number of times.
+    /// doesn't care about the frequency of appearing in different strings.
+    pub fn count_below(&self , threshold  : u32) -> usize {
         let mut count = 0;
         
         let keys : Vec<String> = self.column_index.iter().filter(|(_ , value)| value.count <= threshold).map(|(key , _)| key.clone()).collect();
         count = keys.len();
 
+        eprintln!(">Found {} values occuring less than {} times.", count , threshold);
+
+        return count;
+    }
+
+    ///removes the tokens which occur less than r equal to a certain threshold number of times all togather.
+    pub fn remove_weightless(&mut self, threshold  : u32) {
+
+        let count: usize;
+        
+        let keys : Vec<String> = self.column_index.iter().filter(|(_ , value)| value.count <= threshold).map(|(key , _)| key.clone()).collect();
+        count = keys.len();
+
         for key in keys {
+            //eprint!("'{}'", key);
             self.column_index.remove(&key);
         }
 
-        println!("#Found {} values occur less than {} times, Removed.", count , threshold);
+        eprintln!(">Found {} values occuring less than or equal to {} times, Removed.", count , threshold);
 
     }
+
+    ///removes all the tokens that have a special charater.
+    /// threshold controls the size of the length of the strings,
+    /// having 3 as the threshold value removes all the special tokens whose size is more than 3.
+    /// 0 threshold removes all the tokens that start with ascii special characters.
+    pub fn remove_special(&mut self, threshold  : usize) {
+
+        let count: usize;
+        
+        let keys : Vec<String> = self.column_index.iter().filter(|(token , _)| (is_special(token.chars().next().unwrap_or_default())) && (token.is_ascii()) && (token.len() > threshold)).map(|(key , _)| key.clone()).collect();
+        count = keys.len();
+
+        for key in keys {
+            //eprint!("'{}'", key);
+            self.column_index.remove(&key);
+        }
+
+        eprintln!(">Found {} special values having size less than or equal to {} times, Removed.", count , threshold);
+
+    }
+
+
+    ///using the 'rust-stemmers' library, this stems the strings if possible.
+    ///storing the 'ing' 'ed' etc.. is optional.
+    ///you can create an exception for this based on certain endings, but for single letter endings,
+    ///this may not consider even different tokens that end with the same letter.
+    fn stemm_tokens(&mut self, exception_vector : Vec<&str>) {
+
+        let stemmer = Stemmer::create(Algorithm::English);
+        let mut new_tokens = 0;
+        let mut exist_tokens = 0;
+
+        'outer: for (string , sparse) in self.column_index.iter() {
+            for exception in exception_vector.iter() {
+                if string.ends_with(exception) {
+                    continue 'outer;
+                }
+            }
+
+            let changed = stemmer.stem(&string);
+            let changed_Str: &str = &changed;
+            //if the value changed.
+            if changed_Str != string {
+                //if the value already exists in the hashmap, we are going to update it with the new stuff.
+                if self.column_index.contains_key(changed_Str) {
+                    
+                } else { // create a new token in the hashmap and fill it accordingly.
+
+                }
+            }
+
+        }
+    }
     
-    //wiki def : A formula that aims to define the importance of a keyword or phrase within a document or a web page.
-    pub fn weight_terms(&mut self, target_index : usize, weight_scheme : &str) {
+
+    ///wiki def : A formula that aims to define the importance of a keyword or phrase within a document or a web page.
+    
+    fn weight_terms(&mut self, target_index : usize, weight_scheme : &str) {
 
     }
 

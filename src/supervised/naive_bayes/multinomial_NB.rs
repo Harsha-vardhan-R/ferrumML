@@ -1,5 +1,5 @@
 use std::collections::{HashMap, hash_map::Entry};
-use crate::data_frame::{data_type::DataType, return_type::return_type};
+use crate::{data_frame::{data_type::DataType, return_type::ReturnType}, trait_definition::{MLalgo, Predict}};
 
 
 ///Mainly used when the features represent counts or frequencies of different categories.
@@ -26,15 +26,7 @@ pub fn multinomial_NB() -> MultinomialNb {
     }
 }
 
-pub trait MLalgo {
-    fn fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &DataType);
-    ///uses kernel density estimation rather than just depending on the exact particular probaility.
-    fn smooth_fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &DataType);
-}
 
-pub trait predict {
-    fn predict(&self, point : &Vec<f32>) -> return_type;
-}
 
 //TODO -- the functions reallly have big if else statements which is not good but i am not finding any way to make it better.
 impl MLalgo for MultinomialNb {
@@ -148,18 +140,18 @@ impl MLalgo for MultinomialNb {
     }
 
     //we need to implement another kind of fit for which we can use the
-    ///using the kernel smoothing technique
-    fn smooth_fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &DataType) {
+    //using the kernel smoothing technique
+    /* fn smooth_fit(&mut self, X_train : &Vec<Vec<f32>>, y_train : &DataType) {
         
-    }
+    } */
 
 }
 
 //TODO -- way too many type castings, please improve it the code looks messy as shit.
 
-impl predict for MultinomialNb {
+impl Predict for MultinomialNb {
     
-    fn predict (&self, x : &Vec<f32>) -> return_type {
+    fn predict (&self, x : &Vec<f32>) -> ReturnType {
         
         let mut present_max = (f32::MIN , -1_i32);//-1 to not have any bugs.
 
@@ -180,10 +172,10 @@ impl predict for MultinomialNb {
 
         match self.target_classes.as_ref().unwrap() {
             DataType::Category(temp) => {
-                return return_type::Category(temp[present_max.1 as usize]);
+                return ReturnType::Category(temp[present_max.1 as usize]);
             }
             DataType::Strings(temp) => {
-                return return_type::Strings(temp[present_max.1 as usize].clone());
+                return ReturnType::Strings(temp[present_max.1 as usize].clone());
             },
             _ => panic!("First train this data then use the predict method, and also you can only train this data on categorical or string targets"),
         }

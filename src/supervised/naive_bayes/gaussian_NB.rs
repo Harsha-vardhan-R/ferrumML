@@ -1,7 +1,7 @@
 use core::panic;
 use std::collections::HashMap;
-use rayon::prelude::{IntoParallelRefIterator, IndexedParallelIterator, ParallelIterator};
-use crate::data_frame::{data_type::*, return_type::*};
+use rayon::prelude::{IndexedParallelIterator, ParallelIterator};
+use crate::{data_frame::{data_type::*, return_type::*}, trait_definition::{MLalgo, Predict}};
 
 #[derive(Debug)]
 
@@ -14,24 +14,22 @@ pub struct GaussianNb {
     means_and_std_devs: Vec<Vec<(f32 , f32)>>,
 }
 
-///creates a gaussian naive bayes object.
-pub fn gaussian_NB() -> GaussianNb {
-    GaussianNb { 
-        target_classes: None, 
-        means_and_std_devs: vec![vec![]],
-        total_number_of_cases: 0,
-        target_class_distributions: vec![],
-    }
+impl GaussianNb {
     
+    ///creates a gaussian naive bayes object.
+    pub fn new() -> GaussianNb {
+        GaussianNb { 
+            target_classes: None, 
+            means_and_std_devs: vec![vec![]],
+            total_number_of_cases: 0,
+            target_class_distributions: vec![],
+        }
+        
+    }
+
 }
 
-pub trait MLalgo {
-    fn fit(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType);
-}
 
-pub trait predict {
-    fn predict(&self, point : &Vec<f32>) -> return_type;
-}
 
 
 impl MLalgo for GaussianNb {
@@ -94,10 +92,8 @@ impl MLalgo for GaussianNb {
 
             return;
 
-        }
-
-        if let DataType::Strings(temp) = y_train {
-                //creating a hashmap and giving a index to each different category, we may sometimes have the same value for all key value pairs , but it is not worth the risk.
+        } else if let DataType::Strings(temp) = y_train {
+                //creating a hashmap and giving a index to each different string type, we may sometimes have the same value for all key value pairs , but it is not worth the risk.
                 let mut counter: HashMap<String, usize> = HashMap::new();
                 let mut count = 0_usize;
                 for i in temp {
@@ -156,9 +152,9 @@ impl MLalgo for GaussianNb {
 }
 
 
-impl predict for GaussianNb {
+impl Predict for GaussianNb {
 
-    fn predict(&self, point : &Vec<f32>) -> return_type {
+    fn predict(&self, point : &Vec<f32>) -> ReturnType {
         //first we are going to calculate the numerator of the posterior for all the class types.
 
 
@@ -177,10 +173,10 @@ impl predict for GaussianNb {
 
         match self.target_classes.as_ref().unwrap() {
             DataType::Category(temp) => {
-                return return_type::Category(temp[present_max.1 as usize]);
+                return ReturnType::Category(temp[present_max.1 as usize]);
             }
             DataType::Strings(temp) => {
-                return return_type::Strings(temp[present_max.1 as usize].clone());
+                return ReturnType::Strings(temp[present_max.1 as usize].clone());
             },
             _ => panic!("No fucking way this reached here"),
         }
