@@ -14,13 +14,14 @@ use crate::data_frame::{data_type::DataType, data_frame::DataFrame};
 use rust_stemmers::{Algorithm , Stemmer};
 
 pub struct Tokens {
-    column_index: HashMap<String, SparseVecWithCount>
+    pub column_index: HashMap<String, SparseVecWithCount>
 }
 
 
 #[derive(Debug)]
 //we need to convert into some vec of vec of f32 when training but we will decrease the number of tokens by that time. 
-struct SparseVecWithCount {
+pub struct SparseVecWithCount {
+    index : usize,//to be used to make the input and the output vectors.
     count : u32,//frequency of the item.
     sparse_vector: CsVec<u32>,
 }
@@ -90,12 +91,32 @@ impl<'a> SpecialStrClump<'a> {
     }
 }
 
+#[derive(Debug)]
+pub struct SpecialStrDivideall<'a> {
+    string: &'a str,
+    back: usize,
+}
+
+impl<'a> SpecialStrDivideall<'a> {
+    pub fn new(input : &'a str) -> Self {
+        SpecialStrDivideall {string: input, back: 0}
+    }
+}
+
+/* impl<'a> Iterator for SpecialStrDivideall<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.
+    }
+} */
+
 //to split at all the places which are special.
-//but we need to give some special importance to the '?', '!', '', ''
+//but we need to give some special importance to the '?', '!', '', ''554
 //anything which is not a alphanumeric or a whitespace.
 //but this means we only consider the english letters and all the other language letters will be divided into individual or clumped. 
 pub fn is_special(c: char) -> bool {
-    !c.is_ascii_alphanumeric() && !c.is_whitespace()
+    !c.is_ascii_alphanumeric() && !c.is_whitespace()//try adding !c.is_ascii() , we can tokenise even other languages properly
 }
 
 //this iterator divides into "I am an assHoLe!. .." into an iterator which gives out ("i" , "am", "an" , "assHoLe" , "!", ".", ".", ".")(they won't be lowercase ,that happens in the tokeniser)
@@ -169,7 +190,7 @@ impl<'a> Iterator for SpecialStrClump<'a> {
                 }
             } else if !character.is_whitespace() {
                 //if it is not a special character then we are going to select a substring whose end will be at :
-               //--the one before the next following special character
+                //--the one before the next following special character
                 //--or the one before a whitespace
                 //--or the one before the end of the sentence.
                 //then we are going to determine the substring to be selected based on this comparision.
@@ -205,6 +226,8 @@ impl Tokens {
     ///possible only for the string data type.
     pub fn tokenise(&mut self, frame : &DataFrame, index : usize, iterator_type : &str) {
 
+        let mut index_here = 0;
+
         //not preallocating the memory because we do not know the number of individual words we are going to come across.
         let mut token_distribution: Vec<usize> = vec![];
         let mut count: usize = 0_usize;
@@ -220,7 +243,7 @@ impl Tokens {
                     let special_string: SpecialStrings = match iterator_type {
                         "divide_special" => SpecialStrings::DivideSpecial(SpecialStr::new(&lower_temp)),
                         "clump_special" => SpecialStrings::ClumpSpecial(SpecialStrClump::new(&lower_temp)),
-                        _ => panic!("no iterator found with this name"),
+                        _ => panic!("no token iterator found with this name"),
                     };
 
                     count += 1;
@@ -246,9 +269,9 @@ impl Tokens {
                                     to_mod.sparse_vector.append(string_index , 1);
                                 }
                             },
-                            //a new word!(i am not that exited tbh, that is just a word of expression, oh you are making me sad :( )
                             Entry::Vacant(mut entry) => {
-                                entry.insert(SparseVecWithCount {count: 1, sparse_vector: CsVec::new(frame.number_of_samples as usize , vec![string_index] , vec![1])});
+                                entry.insert(SparseVecWithCount {index : index_here , count: 1, sparse_vector: CsVec::new(frame.number_of_samples as usize , vec![string_index] , vec![1])});
+                                index_here += 1;
                             },
                         }
                     }
@@ -319,8 +342,16 @@ impl Tokens {
     pub fn remove_special(&mut self, threshold  : usize) {
 
         let count: usize;
+         
+        let keys : Vec<String> = self.column_index.iter()
+            .filter(|(token , _)| (
+                is_special(token.chars().next().unwrap_or_default())) && 
+                (token.is_ascii()) && 
+                (token.len() > threshold)
+            )
+            .map(|(key , _)| key.clone())
+            .collect();
         
-        let keys : Vec<String> = self.column_index.iter().filter(|(token , _)| (is_special(token.chars().next().unwrap_or_default())) && (token.is_ascii()) && (token.len() > threshold)).map(|(key , _)| key.clone()).collect();
         count = keys.len();
 
         for key in keys {
@@ -335,8 +366,7 @@ impl Tokens {
 
     ///using the 'rust-stemmers' library, this stems the strings if possible.
     ///storing the 'ing' 'ed' etc.. is optional.
-    ///you can create an exception for this based on certain endings, but for single letter endings,
-    ///this may not consider even different tokens that end with the same letter.
+    ///you can create an exception for this based on certain endings.
     fn stemm_tokens(&mut self, exception_vector : Vec<&str>) {
 
         let stemmer = Stemmer::create(Algorithm::English);
@@ -352,24 +382,47 @@ impl Tokens {
 
             let changed = stemmer.stem(&string);
             let changed_Str: &str = &changed;
+            //we are going to store the names of the tokens cause we cannot iterate and remove at the same time.
             //if the value changed.
             if changed_Str != string {
                 //if the value already exists in the hashmap, we are going to update it with the new stuff.
                 if self.column_index.contains_key(changed_Str) {
-                    
+                    //w somehow need to mix both the vectors with the repeated count.
+                    let temp = self.column_index.get(changed_Str).unwrap();
+
                 } else { // create a new token in the hashmap and fill it accordingly.
 
                 }
             }
-
         }
     }
+
+
     
 
-    ///wiki def : A formula that aims to define the importance of a keyword or phrase within a document or a web page.
+    //wiki def : A formula that aims to define the importance of a keyword or phrase within a document or a web page.
     
     fn weight_terms(&mut self, target_index : usize, weight_scheme : &str) {
 
     }
 
 }
+
+//function takes two inputs in and returns one jointed output.
+/* fn rearrange_new(to_add1 : &SparseVecWithCount, to_add2 : &SparseVecWithCount) {
+    let present_in_2 = 0;
+    let mut new_swc = SparseVecWithCount{
+        count : to_add1.count + to_add2.count,
+        sparse_vector : CsVec::empty(1),
+    };
+
+    //let mut to_fill = CsVec::new(10 , vec![0_]);
+
+    let mut iter1 = to_add1.sparse_vector.iter();
+    let mut iter2 = to_add2.sparse_vector.iter();
+
+    //we are going to call next and append that value to the neewly created hashmap.
+    
+
+
+} */

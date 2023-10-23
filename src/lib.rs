@@ -1,7 +1,9 @@
+#![allow(warnings)]
+
+
 pub mod preprocessing {
     pub mod pca;
     mod pca_test;
-    
 }
 
 pub mod n_dimen {

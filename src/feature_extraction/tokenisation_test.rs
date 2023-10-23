@@ -74,11 +74,15 @@ fn divide_n_print_4() {
 fn divide_n_print_5() {
 
     let input = "你好, 这是一个随机生成的中文UTF-8字符串。";
-    let new_one = SpecialStrClump::new(&input);
+    let new_one = SpecialStr::new(&input);
 
     for i in new_one.into_iter() {
         println!("{}", i);
     } 
+
+    for i in input.chars() {
+        print!("{} \n",i);
+    }
 
     //assert_eq!(temp , vec!["`", "i", "love", "mine", ",", "too", ".", "happy", "mother", "ï", "½", "ay", "al"]);
 
@@ -95,32 +99,16 @@ fn opening_and_tokenising() {
 
     new_.describe();
 
-    new_.describe_the("text", false);
+    //new_.describe_the("text", false);
 
     println!("Time taken to describe is : {:?}", start_time.elapsed());
     let start_time = std::time::Instant::now();
 
     let mut temp = Tokens::new();
 
-    temp.tokenise(&new_, 2 , "clump_special");
+    temp.tokenise(&new_, 1 , "clump_special");
 
-    println!("Time taken to tokenise is : {:?}", start_time.elapsed());
-    println!("'...' occurs {} times", temp.get_count("..."));
-
-    //temp.temp();
-
-    temp.get_stats();
-
-    temp.remove_weightless(1);
-
-    //temp.stemm_tokens();
-
-    //temp.temp();
-    temp.get_stats();
-
-    temp.remove_special(0);
-
-    temp.get_stats();
+    //println!("Time taken to tokenise is : {:?}", start_time.elapsed());
     println!("'...' occurs {} times", temp.get_count("..."));
 
 }

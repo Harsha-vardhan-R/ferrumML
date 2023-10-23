@@ -52,6 +52,8 @@ pub mod clustering {
     }
 }
 
+//harsha  is a fool
+
 pub mod supervised {
     pub mod naive_bayes {
         pub mod gaussian_NB;
