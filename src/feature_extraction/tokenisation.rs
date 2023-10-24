@@ -14,7 +14,7 @@ use sprs::CsVec;
 use crate::data_frame::{data_type::DataType, data_frame::DataFrame};
 use rust_stemmers::{Algorithm , Stemmer};
 
-use self::special_iterator::{SpecialStrings, SpecialStr, SpecialStrClump};
+use self::special_iterator::{SpecialStrings, SpecialStr, SpecialStrClump, SpecialStrDivideall};
 
 pub struct Tokens {
     pub column_index: HashMap<String, SparseVecWithCount>
@@ -46,12 +46,15 @@ impl SparseVecWithCount {
 
 
 pub mod special_iterator {
+    use std::char::from_digit;
+
 
 
     #[derive(Debug)]
     pub enum SpecialStrings<'a> {
         DivideSpecial(SpecialStr<'a>),//treats all the speacial charecters as different.
-        ClumpSpecial(SpecialStrClump<'a>)//treats consecutive special characters as a single token.
+        ClumpSpecial(SpecialStrClump<'a>),//treats consecutive special characters as a single token.
+        DivideAll(SpecialStrDivideall<'a>),//returns an iterator that returns each char except the whitespces.
     }
 
     impl<'a> IntoIterator for SpecialStrings<'a> {
@@ -65,6 +68,9 @@ pub mod special_iterator {
                 }
                 SpecialStrings::ClumpSpecial(special_str_clump) => {
                     Box::new(special_str_clump.into_iter())
+                }
+                SpecialStrings::DivideAll(special_str_divide_all) => {
+                    Box::new(special_str_divide_all.into_iter())
                 }
             }
         }
@@ -111,12 +117,12 @@ pub mod special_iterator {
     #[derive(Debug)]
     pub struct SpecialStrDivideall<'a> {
         string: &'a str,
-        back: usize,
+        front: usize,
     }
 
     impl<'a> SpecialStrDivideall<'a> {
         pub fn new(input : &'a str) -> Self {
-            SpecialStrDivideall {string: input, back: 0}
+            SpecialStrDivideall {string: input, front: 0}
         }
     }
 
@@ -165,7 +171,7 @@ pub mod special_iterator {
         }
     }
 
-    //######################UNTESTED#############
+    //######################WORKING AS EXPECTED#############
     //this iterator divides into "I am an assHoLe!. .." into an iterator which gives out ("i" , "am", "an" , "assHoLe" , "!.", "..").the turning this into lowercase is done in the tokeniser.
     //we are going to split at the whitespaces and any special character boundaries.
     impl<'a> Iterator for SpecialStrClump<'a> {
@@ -202,6 +208,22 @@ pub mod special_iterator {
 
     }
 
+    impl<'a> Iterator for SpecialStrDivideall<'a> {
+        type Item = &'a str;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            for i in self.string[self.front..].chars() {
+                if !i.is_ascii_whitespace() {
+                    self.front += i.len_utf8();
+                    return Some(&self.string[self.front-i.len_utf8()..self.front]);
+                } else {
+                    self.front += i.len_utf8();
+                }
+            }
+            return None;
+        }
+    }
+
 }
 
 
@@ -215,6 +237,10 @@ impl Tokens {
 
     ///Tokenise a certain column of the data_frame
     ///possible only for the string data type.
+    /// currently imple types for iterator types:
+    ///->     "divide_special"
+    ///->     "clump_special"
+    ///->     "divide_all"
     pub fn tokenise(&mut self, frame : &DataFrame, index : usize, iterator_type : &str) {
 
         let mut index_here = 0;
@@ -234,6 +260,7 @@ impl Tokens {
                     let special_string: SpecialStrings = match iterator_type {
                         "divide_special" => SpecialStrings::DivideSpecial(SpecialStr::new(&lower_temp)),
                         "clump_special" => SpecialStrings::ClumpSpecial(SpecialStrClump::new(&lower_temp)),
+                        "divide_all" => SpecialStrings::DivideAll(SpecialStrDivideall::new(&lower_temp)),
                         _ => panic!("no token iterator found with this name"),
                     };
 
