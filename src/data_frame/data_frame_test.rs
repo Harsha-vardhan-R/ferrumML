@@ -21,7 +21,7 @@ fn opening_df() {
 #[test]
 fn opening_df_2() {
     let start_time = time::Instant::now();
-    let mut data = read_csv("wine.csv", true , false).unwrap();
+    let mut data = read_csv("testing_data/wine-clustering.csv", true , false).unwrap();
     //data.print_headers();
     //data.head();
     data.head();
@@ -36,7 +36,7 @@ fn opening_df_2() {
 #[test]
 fn opening_df_3() {
     let start_time = time::Instant::now();
-    let mut data = read_csv("C:/Users/HARSHA/Downloads/archive (1)/ds_salaries.csv", true , false).unwrap();
+    let mut data = read_csv("testing_data/archive (1)/ds_salaries.csv", true , false).unwrap();
     //data.print_headers();
     //data.head();
     data.describe();    

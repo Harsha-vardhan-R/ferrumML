@@ -7,11 +7,14 @@
 //! >Turning this into a vec<vec<f32>> for training some model.
 
 
+use crate::feature_extraction::tokenisation::special_iterator::is_special;
 use std::collections::{HashMap, hash_map::Entry};
 use fastrand::char;
 use sprs::CsVec;
 use crate::data_frame::{data_type::DataType, data_frame::DataFrame};
 use rust_stemmers::{Algorithm , Stemmer};
+
+use self::special_iterator::{SpecialStrings, SpecialStr, SpecialStrClump};
 
 pub struct Tokens {
     pub column_index: HashMap<String, SparseVecWithCount>
@@ -41,177 +44,175 @@ impl SparseVecWithCount {
 
 }
 
-#[derive(Debug)]
-enum SpecialStrings<'a> {
-    DivideSpecial(SpecialStr<'a>),//treats all the speacial charecters as different.
-    ClumpSpecial(SpecialStrClump<'a>)//treats consecutive special characters as a single token.
-}
 
-impl<'a> IntoIterator for SpecialStrings<'a> {
-    type Item = &'a str;
-    type IntoIter = Box<dyn Iterator<Item = &'a str> + 'a>;
+pub mod special_iterator {
 
-    fn into_iter(self) -> Self::IntoIter {
-        match self {
-            SpecialStrings::DivideSpecial(special_str) => {
-                Box::new(special_str.into_iter())
+    #[derive(Debug)]
+    pub enum SpecialStrings<'a> {
+        DivideSpecial(SpecialStr<'a>),//treats all the speacial charecters as different.
+        ClumpSpecial(SpecialStrClump<'a>)//treats consecutive special characters as a single token.
+    }
+
+    impl<'a> IntoIterator for SpecialStrings<'a> {
+        type Item = &'a str;
+        type IntoIter = Box<dyn Iterator<Item = &'a str> + 'a>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            match self {
+                SpecialStrings::DivideSpecial(special_str) => {
+                    Box::new(special_str.into_iter())
+                }
+                SpecialStrings::ClumpSpecial(special_str_clump) => {
+                    Box::new(special_str_clump.into_iter())
+                }
             }
-            SpecialStrings::ClumpSpecial(special_str_clump) => {
-                Box::new(special_str_clump.into_iter())
+        }
+
+    }
+
+
+
+    #[derive(Debug)]
+    //special whitespace and special character dividing iterator.
+    //we should not duplicate the data anywhere.
+    //we are going to
+    pub struct SpecialStr<'a> {
+        string: &'a str,
+        //this is going to store the start of the present token
+        //it "SHOULD" be a char boundary, we are going to make sure of 
+        //that in the iterator impl.
+        front: usize, 
+    }
+
+    impl<'a> SpecialStr<'a> {
+        pub fn new(input : &'a str) -> Self {
+            SpecialStr {
+                string: input,
+                //initially starting at 0.
+                front: 0
             }
         }
     }
 
-}
-
-
-
-#[derive(Debug)]
-//special whitespace and special character dividing iterator.
-pub struct SpecialStr<'a> {
-    string: &'a str,
-    back: usize,//index of the back of the &str substring.(we are using the charindices so we are for sure going to get an index which is a boundary)
-}
-
-impl<'a> SpecialStr<'a> {
-    pub fn new(input : &'a str) -> Self {
-        SpecialStr {string: input, back: 0}
+    #[derive(Debug)]
+    pub struct SpecialStrClump<'a> {
+        string: &'a str,
+        back: usize,
     }
-}
 
-#[derive(Debug)]
-pub struct SpecialStrClump<'a> {
-    string: &'a str,
-    back: usize,
-}
-
-impl<'a> SpecialStrClump<'a> {
-    pub fn new(input : &'a str) -> Self {
-        SpecialStrClump {string: input, back: 0}
+    impl<'a> SpecialStrClump<'a> {
+        pub fn new(input : &'a str) -> Self {
+            SpecialStrClump {string: input, back: 0}
+        }
     }
-}
 
-#[derive(Debug)]
-pub struct SpecialStrDivideall<'a> {
-    string: &'a str,
-    back: usize,
-}
-
-impl<'a> SpecialStrDivideall<'a> {
-    pub fn new(input : &'a str) -> Self {
-        SpecialStrDivideall {string: input, back: 0}
+    #[derive(Debug)]
+    pub struct SpecialStrDivideall<'a> {
+        string: &'a str,
+        back: usize,
     }
-}
 
-/* impl<'a> Iterator for SpecialStrDivideall<'a> {
-    type Item = &'a str;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.
+    impl<'a> SpecialStrDivideall<'a> {
+        pub fn new(input : &'a str) -> Self {
+            SpecialStrDivideall {string: input, back: 0}
+        }
     }
-} */
 
-//to split at all the places which are special.
-//but we need to give some special importance to the '?', '!', '', ''554
-//anything which is not a alphanumeric or a whitespace.
-//but this means we only consider the english letters and all the other language letters will be divided into individual or clumped. 
-pub fn is_special(c: char) -> bool {
-    !c.is_ascii_alphanumeric() && !c.is_whitespace()//try adding !c.is_ascii() , we can tokenise even other languages properly
-}
+    //#####################
+    //SPECIAL ITERATORS
+    //#####################
 
-//this iterator divides into "I am an assHoLe!. .." into an iterator which gives out ("i" , "am", "an" , "assHoLe" , "!", ".", ".", ".")(they won't be lowercase ,that happens in the tokeniser)
-//we are going to split at the whitespaces and any special characters.
 
-//the divide_special iterator. 
-impl<'a> Iterator for SpecialStr<'a> {
-    type Item = &'a str;
+    //to split at all the places which are special.
+    //but we need to give some special importance to the '?', '!'.
+    //anything which is not a alphanumeric or a whitespace.
+    //but this means we only consider the english letters and all the other language letters will be divided into individual or clumped. 
+    pub fn is_special(c: char) -> bool {
+        !c.is_ascii_alphanumeric() && !c.is_whitespace()//try adding !c.is_ascii() , we can tokenise even other languages properly
+    }
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let max_index = self.string.len();
+    //this iterator divides into "I am an assHoLe!. .." into an iterator which gives out ("i" , "am", "an" , "assHoLe" , "!", ".", ".", ".")(they won't be lowercase ,that happens in the tokeniser)
+    //we are going to split at the whitespaces and any special characters.
 
-        //the char indices iterator returns the byte position of each character and the character itself
-        //so it can give out values like 23 ,27 , 28 consecutively which is not a problem , but the skip doesn't
-        //care about it it just looks for the first n elements so it doesn't care about the byte index.
-        for (i , character) in self.string.char_indices().skip(self.back) {
-            //if the present char is a special character just return the character by itself.
-            if is_special(character) {
-                self.back += 1;
-                return Some(&self.string[i..i+character.len_utf8()]);
-            } else if !character.is_whitespace() {
-                //if it is not a special character then we are going to select a substring whose end will be at :
-                //--the one before the next following special character
-                //--or the one before a whitespace
-                //--or the one before the end of the sentence.
-                //then we are going to determine the substring to be selected based on this comparision.
-                for (back , character_2) in self.string.char_indices().skip(self.back+1) {
-                    self.back += 1;
-                    if is_special(character_2) || character_2.is_whitespace() || back+1 == max_index {
-                        if back+1 == max_index && !is_special(self.string.chars().last().unwrap()) {
-                            return Some(&self.string[i..max_index]);
+    //the divide_special iterator. 
+    impl<'a> Iterator for SpecialStr<'a> {
+        type Item = &'a str;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            //we are iterating only on the remaining part of the string for a linear time complexity.
+            let mut bound_index : usize = self.front;
+
+            for char_1 in self.string[self.front..].chars() {
+                if is_special(char_1) {//update the self.front and return the special character alone.
+                    self.front = bound_index+char_1.len_utf8();//this is a guaranteed char boundary.
+                    return Some(&self.string[bound_index..self.front]);
+                } else if !char_1.is_whitespace() {//ascii whitespace also matches to newline and a couple of other characters
+                    for (back_byte_index , char_2) in self.string[bound_index..].char_indices() {
+                        if is_special(char_2) || char_2.is_whitespace() {
+                            self.front = bound_index+back_byte_index;
+                            return Some(&self.string[bound_index..self.front]);                            
                         }
-                        //IMP : do not get confused back is a valid character end unlike self.back, which is the count of the nth character
-                        //sorry for the bad naming.
+                    }
+                    self.front = self.string.len();
+                    return Some(&self.string[bound_index..]);//if there is nothing left in the above iterator.
+                } else {
+                    bound_index += char_1.len_utf8();
+                } 
+            }
+            return None;
+        }
+    }
+
+    //this iterator divides into "I am an assHoLe!. .." into an iterator which gives out ("i" , "am", "an" , "assHoLe" , "!.", "..").the turning this into lowercase is done in the tokeniser.
+    //we are going to split at the whitespaces and any special character boundaries.
+
+    impl<'a> Iterator for SpecialStrClump<'a> {
+        type Item = &'a str;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let max_index = self.string.len();
+
+            //the char indices iterator returns the byte position of each character and the character itself
+            //so it can give out values like 23 ,27 , 28 consecutively which is not a problem , but the skip doesn't
+            //care about it it just looks for the first n elements so it doesn't care about the byte index.
+            for (i , character) in self.string.char_indices().skip(self.back) {
+                //if the present char is a special character just return the character by itself.
+                if is_special(character) {
+                    //self.back += 1;
+                    for (back , character_2) in self.string.char_indices().skip(self.back+1) {
+                        self.back += 1;
+                        if back+1 == max_index {
+                            return Some(&self.string[i..max_index]);
+                        } else if is_special(character_2) {
+                            continue;
+                        } 
                         return Some(&self.string[i..back]);
                     }
-                }
-            } else {//if there are more than 1 consecutive spaces
-                self.back += 1;
-            }
-        }
-        None
-    }
-
-}
-
-//this iterator divides into "I am an assHoLe!. .." into an iterator which gives out ("i" , "am", "an" , "assHoLe" , "!.", "..").the turning this into lowercase is done in the tokeniser.
-//we are going to split at the whitespaces and any special character boundaries.
-
-impl<'a> Iterator for SpecialStrClump<'a> {
-    type Item = &'a str;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let max_index = self.string.len();
-
-        //the char indices iterator returns the byte position of each character and the character itself
-        //so it can give out values like 23 ,27 , 28 consecutively which is not a problem , but the skip doesn't
-        //care about it it just looks for the first n elements so it doesn't care about the byte index.
-        for (i , character) in self.string.char_indices().skip(self.back) {
-            //if the present char is a special character just return the character by itself.
-            if is_special(character) {
-                //self.back += 1;
-                for (back , character_2) in self.string.char_indices().skip(self.back+1) {
-                    self.back += 1;
-                    if back+1 == max_index {
-                        return Some(&self.string[i..max_index]);
-                    } else if is_special(character_2) {
-                        continue;
-                    } 
-                    return Some(&self.string[i..back]);
-                }
-            } else if !character.is_whitespace() {
-                //if it is not a special character then we are going to select a substring whose end will be at :
-                //--the one before the next following special character
-                //--or the one before a whitespace
-                //--or the one before the end of the sentence.
-                //then we are going to determine the substring to be selected based on this comparision.
-                for (back , character_2) in self.string.char_indices().skip(self.back+1) {
-                    self.back += 1;
-                    if is_special(character_2) || character_2.is_whitespace() || back+1 == max_index {
-                        if back+1 == max_index && !is_special(self.string.chars().last().unwrap()) {
-                            return Some(&self.string[i..max_index]);
+                } else if !character.is_whitespace() {
+                    //if it is not a special character then we are going to select a substring whose end will be at :
+                    //--the one before the next following special character
+                    //--or the one before a whitespace
+                    //--or the one before the end of the sentence.
+                    //then we are going to determine the substring to be selected based on this comparision.
+                    for (back , character_2) in self.string.char_indices().skip(self.back+1) {
+                        self.back += 1;
+                        if is_special(character_2) || character_2.is_whitespace() || back+1 == max_index {
+                            if back+1 == max_index && !is_special(self.string.chars().last().unwrap()) {
+                                return Some(&self.string[i..max_index]);
+                            }
+                            return Some(&self.string[i..back]);
                         }
-                        return Some(&self.string[i..back]);
                     }
+                } else {//if there are more than 1 consecutive spaces
+                    self.back += 1;
                 }
-            } else {//if there are more than 1 consecutive spaces
-                self.back += 1;
             }
+            None
         }
-        None
+
     }
 
 }
-
 
 
 impl Tokens {

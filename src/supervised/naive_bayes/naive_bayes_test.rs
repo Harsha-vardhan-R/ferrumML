@@ -8,7 +8,7 @@ use crate::{file_handling::read_from::read_csv, evaluation::accuracy::accuracy_s
 #[test]
 fn test_sample_gaussian() {
     let start_time = time::Instant::now();
-    let mut data = read_csv(r#" "#, true , true).unwrap(); 
+    let mut data = read_csv(r#""#, true , true).unwrap(); 
     print!("loading the data : {:?}", start_time.elapsed());
     //dalnta.head();
     let h = data.train_test_split(0.1, data.get_target_index("label").unwrap() , true);

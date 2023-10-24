@@ -1,3 +1,5 @@
 target/
+testing_data/
 .vscode/
 .cargo/
+.rust-toolchain.toml
