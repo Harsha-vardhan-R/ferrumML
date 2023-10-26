@@ -1,6 +1,8 @@
-use crate::feature_extraction::tokenisation::special_iterator::SpecialStrDivideall;
-use crate::file_handling::read_from::read_csv;
-use crate::feature_extraction::tokenisation::{special_iterator::{SpecialStr, SpecialStrClump}, Tokens};
+
+
+use std::io::Write;
+
+use crate::{feature_extraction::tokenisation::{special_iterator::{SpecialStr, SpecialStrClump, SpecialStrDivideall}, Tokens, stemm_string, remove_stop_words}, file_handling::read_from::read_csv};
 
 
 #[cfg(test)]
@@ -60,17 +62,17 @@ fn divide_n_print_2() {
 
 #[test]
 
-////////this is not exactly working as it should, but just going with it.
+
 fn divide_n_print_3() {
 
     let input = "` i love mine, too . happy motherï¿½s day to all";
-    let new_one = SpecialStrDivideall::new(&input);
+    let new_one = SpecialStr::new(&input);
 
     let temp: Vec<&str> = new_one.into_iter().collect();
     
-    println!("{:?}",&temp);
+    //println!("{:?}",&temp);
 
-    //assert_eq!(temp , vec!["`", "i", "love", "mine", ",", "too", ".", "happy", "mother", "ï", "¿", "½", "s", "day", "to", "all"]);
+    assert_eq!(temp , vec!["`", "i", "love", "mine", ",", "too", ".", "happy", "mother", "ï", "¿", "½", "s", "day", "to", "all"]);
 
 }
 
@@ -78,32 +80,28 @@ fn divide_n_print_3() {
 fn divide_n_print_4() {
 
     let input = "` i love mine, too . happy motherï¿½s day to all";
-    let new_one = SpecialStrClump::new(&input);
+    let new_one = SpecialStr::new(&input);
 
 
-    for i in new_one.into_iter() {
-        println!("{}", i);
-    } 
+    let temp = new_one.into_iter().map(|a_str| a_str.to_string()).collect::<Vec<String>>();
 
-    //assert_eq!(temp , vec!["`", "i", "love", "mine", ",", "too", ".", "happy", "mother", "ï", "½", "ay", "al"]);
+    assert_eq!(temp , vec!["`", "i", "love", "mine", ",", "too", ".", "happy", "mother", "ï", "¿", "½", "s", "day", "to", "all"]);
 
 }
 
 #[test]
-fn divide_n_print_5() {
+fn divide_n_print_5() {//for different languages.
 
-    let input = "你好, 这是一个随机生成的中文UTF-8字符串。";
+    //let input = "你好, 这是一个随机生成的中文UTF-8字符串。";
+    //let input = "हिंदी भाषा एक भारतीय भाषा है और इसका लिपि देवनागरी है। यह विशेष रूप से भारत, नेपाल, और दुनियाभर में बोली जाती है। हिंदी में कई बेहतरीन काव्य और साहित्य के रचयिता हैं।";
+    let input = "తెలుగు భాష దక్షిణ భారతదేశంలో మాతృభాషగా ప్రసిద్ధంగా ఉంది. ఈ భాష తెలుగు లిపితో రాసుకొనబడతాయి. ఇది కవిత, సాహిత్యం, మరియు కళాశిల్పం లో మంచి పరిణామం చేస్తుంది.";
+
     let new_one = SpecialStrClump::new(&input);
 
-    for i in new_one.into_iter() {
-        println!("{}", i);
-    } 
+    let temp = new_one.into_iter().map(|str_| str_.to_owned()).collect::<Vec<String>>();
 
-    for i in input.chars() {
-        print!("{} \n",i);
-    }
 
-    //assert_eq!(temp , vec!["`", "i", "love", "mine", ",", "too", ".", "happy", "mother", "ï", "½", "ay", "al"]);
+    assert_eq!(temp , vec!["తెలుగు" ,"భాష" ,"దక్షిణ" ,"భారతదేశంలో" ,"మాతృభాషగా" ,"ప్రసిద్ధంగా" ,"ఉంది." ,"ఈ" ,"భాష" ,"తెలుగు" ,"లిపితో" ,"రాసుకొనబడతాయి." ,"ఇది" ,"కవిత," ,"సాహిత్యం," ,"మరియు" ,"కళాశిల్పం" ,"లో" ,"మంచి" ,"పరిణామం" ,"చేస్తుంది."]);
 
 }
 
@@ -129,6 +127,10 @@ fn opening_and_tokenising() {
 
     println!("Time taken to tokenise is : {:?}", start_time.elapsed());
 
+    temp.remove_sparse_tokens(3);
+
+    temp.stemm_tokens(vec!["e"], true, true);
+
     println!("'...' occurs {} times, total number of tokens is : {}", temp.get_count("..."), temp.column_index.len());
     println!("and that of '.' occurs is : {} times", temp.get_count("."));
 
@@ -146,7 +148,7 @@ fn big_file_tokenise_benchmark() {
     use std::io::Write;
 
     let new_text = std::fs::read_to_string(r#"testing_data/shake.txt"#).expect("this file does not even exist man!!");
-    let special = SpecialStr::new(&new_text);
+    let special = SpecialStrClump::new(&new_text);
 
     let tokkk = special.into_iter().collect::<Vec<&str>>();
 
@@ -162,4 +164,25 @@ fn big_file_tokenise_benchmark() {
 
     println!("Time taken to write is : {:?}", start_time.elapsed());
     
+}
+
+#[test]
+fn stemm_individual() {
+
+    //let file = std::fs::read_to_string(r#"testing_data/gist_stopwords.txt"#).unwrap();
+
+
+    //let stop_words = file.split_ascii_whitespace().map(|s| s.to_owned()).collect();
+    let stop_words = vec!["i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself", "they", "them", "their", "theirs", "themselves", "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an", "the", "and", "but", "if", "or", "because", "as", "until", "while", "of", "at", "by", "for", "with", "about", "against", "between", "into", "through", "during", "before", "after", "above", "below", "to", "from", "up", "down", "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here", "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "s", "t", "can", "will", "just", "don", "should", "now"];
+    
+    //print!("{:?}",stop_words);
+    
+    while(true) {
+        let mut hava = String::new();
+        std::io::stdin().read_line(&mut hava);
+        let mut the_vec = stemm_string(&hava, "clump_special", vec!["y" , "e"]);
+        println!("Stemmed string is : {:?}", the_vec);
+        remove_stop_words(&mut the_vec, &stop_words);
+        println!("Stemmed and removed string is : {:?}", the_vec);
+    }
 }

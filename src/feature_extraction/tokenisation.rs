@@ -8,7 +8,7 @@
 
 
 use crate::feature_extraction::tokenisation::special_iterator::is_special;
-use std::collections::{HashMap, hash_map::Entry};
+use std::collections::{HashMap, hash_map::Entry, HashSet};
 use fastrand::char;
 use sprs::CsVec;
 use crate::data_frame::{data_type::DataType, data_frame::DataFrame};
@@ -17,7 +17,8 @@ use rust_stemmers::{Algorithm , Stemmer};
 use self::special_iterator::{SpecialStrings, SpecialStr, SpecialStrClump, SpecialStrDivideall};
 
 pub struct Tokens {
-    pub column_index: HashMap<String, SparseVecWithCount>
+    pub column_index: HashMap<String, SparseVecWithCount>,
+    dimen : Option<usize>
 }
 
 
@@ -46,9 +47,6 @@ impl SparseVecWithCount {
 
 
 pub mod special_iterator {
-    use std::char::from_digit;
-
-
 
     #[derive(Debug)]
     pub enum SpecialStrings<'a> {
@@ -232,6 +230,7 @@ impl Tokens {
     pub fn new() -> Tokens {
         Tokens {
             column_index: HashMap::new(),
+            dimen: None
         }
     }
 
@@ -297,6 +296,7 @@ impl Tokens {
             },
             _ => panic!("You cannot tokenise the float or the category data type"),
         }
+        self.dimen = Some(frame.number_of_samples as usize);
     }
 
     ///to get the statistics about the tokens.
@@ -337,7 +337,7 @@ impl Tokens {
     }
 
     ///removes the tokens which occur less than r equal to a certain threshold number of times all togather.
-    pub fn remove_weightless(&mut self, threshold  : u32) {
+    pub fn remove_sparse_tokens(&mut self, threshold  : u32) {
 
         let count: usize;
         
@@ -381,15 +381,24 @@ impl Tokens {
 
     }
 
+    
 
+    
     ///using the 'rust-stemmers' library, this stems the strings if possible.
     ///storing the 'ing' 'ed' etc.. is optional.
     ///you can create an exception for this based on certain endings.
-    fn stemm_tokens(&mut self, exception_vector : Vec<&str>) {
+    ///for example if you have an element `ing` int the exception_vector it does not care to do any thing with the tokens that end with `ing`.
+    ///
+    ///`keep_changed` - if true, we are going to keep the tokens which are changed AND not already present in the hashmap.
+    ///`replace_changed` ##OVERRIDES OTHER PARAMETERS## - if true, we are going to replace just the token with the new stemmed one IF it does not exist in the hashmap already.
+    /// 
+    /// This is `ALWAYS` going to skip the tokens which are special. so, obviously does not work for any other languages other than english.
+    pub fn stemm_tokens(&mut self, exception_vector : Vec<&str>, keep_changed: bool, replace_changed: bool) {
 
         let stemmer = Stemmer::create(Algorithm::English);
         let mut new_tokens = 0;
         let mut exist_tokens = 0;
+        let mut tokens_to_remove: Vec<String> = vec![];
 
         'outer: for (string , sparse) in self.column_index.iter() {
             for exception in exception_vector.iter() {
@@ -399,29 +408,73 @@ impl Tokens {
             }
 
             let changed = stemmer.stem(&string);
-            let changed_Str: &str = &changed;
+            let changed_str: &str = &changed;
             //we are going to store the names of the tokens cause we cannot iterate and remove at the same time.
             //if the value changed.
-            if changed_Str != string {
+            if changed_str != string {
+
+                eprintln!("Original String : {}, Changed String : {}", string , changed_str);
                 //if the value already exists in the hashmap, we are going to update it with the new stuff.
-                if self.column_index.contains_key(changed_Str) {
-                    //w somehow need to mix both the vectors with the repeated count.
-                    let temp = self.column_index.get(changed_Str).unwrap();
+                if self.column_index.contains_key(changed_str) {
+                    
+                    //let temp = self.column_index.get(changed_str).unwrap();
 
                 } else { // create a new token in the hashmap and fill it accordingly.
 
                 }
+            } else {//if the value already exists in the Hashmap.
+                
             }
         }
     }
 
-
-    
-
     //wiki def : A formula that aims to define the importance of a keyword or phrase within a document or a web page.
-    
     fn weight_terms(&mut self, target_index : usize, weight_scheme : &str) {
 
+    }
+
+}
+
+///for an individual string
+pub fn stemm_string(lower_temp : &str, iterator_type : &str, exception_endings : Vec<&str>) -> Vec<String> {
+    let stemmer = Stemmer::create(Algorithm::English);
+
+    let mut output_vec: Vec<String> = vec![];
+
+    let special_string: SpecialStrings = match iterator_type {
+        "divide_special" => SpecialStrings::DivideSpecial(SpecialStr::new(&lower_temp)),
+        "clump_special" => SpecialStrings::ClumpSpecial(SpecialStrClump::new(&lower_temp)),
+        "divide_all" => SpecialStrings::DivideAll(SpecialStrDivideall::new(&lower_temp)),
+        _ => panic!("no token iterator found with this name"),
+    };
+
+    'outer: for token in special_string.into_iter() {
+        for ending in exception_endings.iter() {
+            if token.ends_with(*ending) {
+                continue 'outer;
+            }
+        }
+        
+        output_vec.push((&stemmer.stem(token)).to_string());
+    }
+    
+    return output_vec;
+}
+
+///for removing the stop words, changes the input vector.
+///this function expects you to give in the input vector which you got by collecting a vector of Strings after tokenising them.
+///and the to_lowercase does exactly what it means-turns all the input strings to lowercase.
+pub fn remove_stop_words(token_in_order : &mut Vec<String>, stop_words : &Vec<&str>) {
+    let mut notedown_names: Vec<usize> = vec![];
+
+    for (index, token) in token_in_order.iter().enumerate() {
+        if stop_words.contains(&&token.as_str()) {
+            notedown_names.push(index);
+        }
+    }
+
+    for i in notedown_names.iter().rev() {
+        token_in_order.remove(*i);
     }
 
 }
