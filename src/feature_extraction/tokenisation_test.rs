@@ -2,6 +2,8 @@
 
 use std::io::Write;
 
+use plotlib::repr::CategoricalRepresentation;
+
 use crate::{feature_extraction::tokenisation::{special_iterator::{SpecialStr, SpecialStrClump, SpecialStrDivideall}, Tokens, stemm_string, remove_stop_words}, file_handling::read_from::read_csv};
 
 
@@ -10,32 +12,18 @@ use crate::{feature_extraction::tokenisation::{special_iterator::{SpecialStr, Sp
 
 #[test]
 fn divide_n_print() {
-    use crate::feature_extraction::tokenisation::special_iterator::SpecialStrDivideall;
+    use crate::feature_extraction::tokenisation::special_iterator::{SpecialStrDivideall, SpeciaStrDivideCustom};
 
 
-    let input = "happy bday. .i. bevibae %#(%# vev nw . ahvbaw";
-    //let input = "I love dogs";
-    let new_one = SpecialStr::new(&input);
-
-    for i in new_one.into_iter() {
-        print!("{} | ", i);
-    }
-
-    println!();
-
-    let new_one = SpecialStrClump::new(&input);
+    //let input = "happy bday. .i. bevibae %#(%# vev nw . ahvbaw";
+    let input = "हिंदी भाषा एक भारतीय भाषा है और इसका लिपि देवनागरी है। यह विशेष रूप से भारत, नेपाल, और दुनियाभर में बोली जाती है। हिंदी में कई बेहतरीन काव्य और साहित्य के रचयिता हैं।";
+    //let new_one = SpeciaStrDivideCustom::new(&input , vec![' ' , '.' , ',' , '一']);
+    let new_one = SpeciaStrDivideCustom::new(&input , vec![' ' , '।' , ',']);
 
     for i in new_one.into_iter() {
-        print!("{} | ", i);
+        print!("{} |||| ", i);
     }
 
-    println!();
-
-    let new_one = SpecialStrDivideall::new(&input);
-
-    for i in new_one.into_iter() {
-        print!("{} | ", i);
-    }
     //assert_eq!(temp , vec!["happy", "bday", ".", ".", "i", ".", "bevibae", "%", "#", "(", "%", "#", "vev", "nw", "."]);
 }
 
@@ -43,7 +31,7 @@ fn divide_n_print() {
 fn divide_n_print_2() {
 
     let input = "hvcvk (vuk == gvyv'' jvv( hvktvk!";
-    let new_one = SpecialStr::new(&input);
+    let new_one = SpecialStrDivideall::new(&input);
 
     let temp: Vec<&str> = new_one.into_iter().collect();
 
@@ -171,12 +159,10 @@ fn stemm_individual() {
 
     //let file = std::fs::read_to_string(r#"testing_data/gist_stopwords.txt"#).unwrap();
 
-
     //let stop_words = file.split_ascii_whitespace().map(|s| s.to_owned()).collect();
     let stop_words = vec!["i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself", "they", "them", "their", "theirs", "themselves", "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an", "the", "and", "but", "if", "or", "because", "as", "until", "while", "of", "at", "by", "for", "with", "about", "against", "between", "into", "through", "during", "before", "after", "above", "below", "to", "from", "up", "down", "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here", "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "s", "t", "can", "will", "just", "don", "should", "now"];
-    
     //print!("{:?}",stop_words);
-    
+
     while(true) {
         let mut hava = String::new();
         std::io::stdin().read_line(&mut hava);
@@ -185,4 +171,15 @@ fn stemm_individual() {
         remove_stop_words(&mut the_vec, &stop_words);
         println!("Stemmed and removed string is : {:?}", the_vec);
     }
+
+}
+
+#[test] 
+
+fn opening_tokenising_and_traingin() {
+    let start_time = std::time::Instant::now();
+
+
+
+    println!("Task completed in : {:?}" , start_time.elapsed());
 }

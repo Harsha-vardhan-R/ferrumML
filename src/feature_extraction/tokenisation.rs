@@ -8,8 +8,9 @@
 
 
 use crate::feature_extraction::tokenisation::special_iterator::is_special;
-use std::collections::{HashMap, hash_map::Entry, HashSet};
+use std::{collections::{HashMap, hash_map::Entry, HashSet}, ascii::AsciiExt};
 use fastrand::char;
+use plotters::prelude::ToGroupByRange;
 use sprs::CsVec;
 use crate::data_frame::{data_type::DataType, data_frame::DataFrame};
 use rust_stemmers::{Algorithm , Stemmer};
@@ -47,12 +48,16 @@ impl SparseVecWithCount {
 
 
 pub mod special_iterator {
+    use std::{collections::{HashSet, HashMap}, hash};
 
+
+    ///An enum that stores different types of special iterator types.
     #[derive(Debug)]
-    pub enum SpecialStrings<'a> {
-        DivideSpecial(SpecialStr<'a>),//treats all the speacial charecters as different.
-        ClumpSpecial(SpecialStrClump<'a>),//treats consecutive special characters as a single token.
-        DivideAll(SpecialStrDivideall<'a>),//returns an iterator that returns each char except the whitespces.
+    pub enum SpecialStrings<'a> {///treats all the speacial charecters as different.
+        DivideSpecial(SpecialStr<'a>),///treats consecutive special characters as a single token.
+        ClumpSpecial(SpecialStrClump<'a>),///returns an iterator that returns each char except the whitespces.
+        DivideAll(SpecialStrDivideall<'a>),///returns an iterator which divides the input string at whitespaces and stop-periods which user provides.
+        DivideCustomSpaces(SpeciaStrDivideCustom<'a>),
     }
 
     impl<'a> IntoIterator for SpecialStrings<'a> {
@@ -69,6 +74,9 @@ pub mod special_iterator {
                 }
                 SpecialStrings::DivideAll(special_str_divide_all) => {
                     Box::new(special_str_divide_all.into_iter())
+                }
+                SpecialStrings::DivideCustomSpaces(special_str_divide_custom) => {
+                    Box::new(special_str_divide_custom.into_iter())
                 }
             }
         }
@@ -112,6 +120,7 @@ pub mod special_iterator {
         }
     }
 
+    //##########################################
     #[derive(Debug)]
     pub struct SpecialStrDivideall<'a> {
         string: &'a str,
@@ -121,6 +130,33 @@ pub mod special_iterator {
     impl<'a> SpecialStrDivideall<'a> {
         pub fn new(input : &'a str) -> Self {
             SpecialStrDivideall {string: input, front: 0}
+        }
+    }
+
+    //##########################################
+    #[derive(Debug)]
+    pub struct SpeciaStrDivideCustom<'a> {
+        string: &'a str,
+        front: usize,
+        special_divide: HashMap<char , usize>,//hashmap to make comparision faster.. and get the length(reason for not using a hashset)
+    }
+
+    ///Delimit at any UTF-8 character.
+    impl<'a> SpeciaStrDivideCustom<'a> {
+        ///delimiters can be any UTF-8 character.
+        pub fn new(input : &'a str , delimiters : Vec<char>) -> Self {
+            let mut hashyy = HashMap::new();
+            
+            for delimiter in delimiters {
+                hashyy.insert(delimiter, delimiter.len_utf8());
+            }
+
+            SpeciaStrDivideCustom { 
+                string: input,
+                front: 0,
+                special_divide : hashyy,
+            }
+
         }
     }
 
@@ -206,6 +242,8 @@ pub mod special_iterator {
 
     }
 
+
+    //#################WORKING AS EXPECTED############################
     impl<'a> Iterator for SpecialStrDivideall<'a> {
         type Item = &'a str;
 
@@ -222,6 +260,36 @@ pub mod special_iterator {
         }
     }
 
+    //#################WORKING AS EXPECTED#############################
+    impl<'a> Iterator for SpeciaStrDivideCustom<'a> {
+        type Item = &'a str;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let mut bound_index : usize = self.front;
+            let max_ = self.string.len();
+
+            for char_1 in self.string[self.front..].chars() {
+                match self.special_divide.get(&char_1) {
+                    Some(length) => {
+                        bound_index += *length;//if the hashmap contains the character we are just going to skip it.
+                    },
+                    None => {
+                        for (front_here , char_2) in self.string[bound_index..].char_indices() {
+                            if self.special_divide.contains_key(&char_2) {
+                                self.front = bound_index+front_here;
+                                return Some(&self.string[bound_index..self.front]);
+                            }
+                        }
+                        self.front = self.string.len();
+                        return Some(&self.string[bound_index..]);
+                    },
+                }
+            }
+            return None;
+        }
+
+    }
+
 }
 
 
@@ -234,12 +302,18 @@ impl Tokens {
         }
     }
 
-    ///Tokenise a certain column of the data_frame
-    ///possible only for the string data type.
+    /// Tokenise a certain column of the data_frame
+    /// possible only for the string data type.
+    /// 
+    /// definition of a special character - `!c.is_ascii_alphanumeric() && !c.is_whitespace()`//try adding !c.is_ascii() , we can tokenise even other languages properly
+    /// 
     /// currently imple types for iterator types:
-    ///->     "divide_special"
-    ///->     "clump_special"
-    ///->     "divide_all"
+    /// 
+    /// `divide_special` - tokens after each word is divided at white spaces and special chaacters consecutive special charaters will be treated as individual,
+    /// 
+    /// `clump_special` - tokens after each word is divided at white spaces and special chaacters consecutive special charaters will be treated as a single token until terminated by a whitespace or a normal character
+    /// 
+    /// `divide_all` - each charater will be treated as an individual token indipendent of being special or not.
     pub fn tokenise(&mut self, frame : &DataFrame, index : usize, iterator_type : &str) {
 
         let mut index_here = 0;
@@ -254,6 +328,7 @@ impl Tokens {
                 let column_index = &mut self.column_index;
                 //for each sentence in the given column.
                 temp.iter().enumerate().for_each(|(string_index , sentence)| {
+
                     let lower_temp = sentence.to_lowercase();
 
                     let special_string: SpecialStrings = match iterator_type {
@@ -267,10 +342,10 @@ impl Tokens {
                     
                     //comparing each word after making it lowercase.
                     //going through the special iterator ;)-
-                    for word in special_string.into_iter() {
+                    for token in special_string.into_iter() {
                         //if the word is already occupied then we are going to just add 1 to the token distribution at that index
                         //or we are going to insert this value with the value 1.
-                        match column_index.entry(word.to_owned()) {
+                        match column_index.entry(token.to_owned()) {
                             //if we already came across this word
                             Entry::Occupied(mut temp) => {
                                 let to_mod = temp.get_mut();
@@ -369,7 +444,7 @@ impl Tokens {
             )
             .map(|(key , _)| key.clone())
             .collect();
-        
+
         count = keys.len();
 
         for key in keys {
@@ -381,43 +456,42 @@ impl Tokens {
 
     }
 
-    
-
-    
     ///using the 'rust-stemmers' library, this stems the strings if possible.
     ///storing the 'ing' 'ed' etc.. is optional.
     ///you can create an exception for this based on certain endings.
     ///for example if you have an element `ing` int the exception_vector it does not care to do any thing with the tokens that end with `ing`.
     ///
     ///`keep_changed` - if true, we are going to keep the tokens which are changed AND not already present in the hashmap.
+    /// 
     ///`replace_changed` ##OVERRIDES OTHER PARAMETERS## - if true, we are going to replace just the token with the new stemmed one IF it does not exist in the hashmap already.
     /// 
-    /// This is `ALWAYS` going to skip the tokens which are special. so, obviously does not work for any other languages other than english.
+    /// This method is `ALWAYS` going to skip the tokens which are special. so, obviously does not work for any other languages other than english.(well, for now at least)
     pub fn stemm_tokens(&mut self, exception_vector : Vec<&str>, keep_changed: bool, replace_changed: bool) {
 
         let stemmer = Stemmer::create(Algorithm::English);
         let mut new_tokens = 0;
         let mut exist_tokens = 0;
         let mut tokens_to_remove: Vec<String> = vec![];
+        //this is used to combine the csvectors of two different tokens if needed.
+        let mut buffer = vec![0_u32 ; self.dimen.unwrap()];
 
         'outer: for (string , sparse) in self.column_index.iter() {
+
+            if is_special(string.chars().nth(1).unwrap()) {//no stemming on special tokens.
+                continue 'outer;
+            }
+
             for exception in exception_vector.iter() {
-                if string.ends_with(exception) {
+                if string.ends_with(*exception) {//to the next token.
                     continue 'outer;
                 }
             }
 
             let changed = stemmer.stem(&string);
             let changed_str: &str = &changed;
-            //we are going to store the names of the tokens cause we cannot iterate and remove at the same time.
-            //if the value changed.
-            if changed_str != string {
 
-                eprintln!("Original String : {}, Changed String : {}", string , changed_str);
-                //if the value already exists in the hashmap, we are going to update it with the new stuff.
+            if changed_str != string {//if the stemmed token is different from the unstemmed one.
                 if self.column_index.contains_key(changed_str) {
-                    
-                    //let temp = self.column_index.get(changed_str).unwrap();
 
                 } else { // create a new token in the hashmap and fill it accordingly.
 
@@ -426,12 +500,40 @@ impl Tokens {
                 
             }
         }
+
     }
 
-    //wiki def : A formula that aims to define the importance of a keyword or phrase within a document or a web page.
+    ///wiki def : A formula that aims to define the importance of a keyword or phrase within a document or a web page.
+    /// 
+    ///this is for training the 
     fn weight_terms(&mut self, target_index : usize, weight_scheme : &str) {
 
     }
+
+}
+
+//function takes two inputs in and returns one jointed output as a csvec.
+//the buffer MUST have all the elements to be 0_usize before being sent into this function.
+fn rearrange_new(to_add1 : &SparseVecWithCount, to_add2 : &SparseVecWithCount, buffer : &mut Vec<u32>) -> sprs::CsVecBase<Vec<usize>, Vec<u32>, u32> {
+
+    //this iter is really fast because it iterates only on non zero values.
+    for (index_1 , element) in to_add1.sparse_vector.iter() {
+        buffer[index_1] = *element;
+    }
+
+    for (index_1 , element) in to_add2.sparse_vector.iter() {
+        buffer[index_1] += *element;
+    }
+
+    let mut new_csvec = CsVec::empty(buffer.len());
+
+    for (index , &num) in buffer.iter().enumerate() {
+        if !(num == 0) {
+            new_csvec.append(index, num);
+        }
+    }
+
+    return new_csvec;
 
 }
 
@@ -454,10 +556,10 @@ pub fn stemm_string(lower_temp : &str, iterator_type : &str, exception_endings :
                 continue 'outer;
             }
         }
-        
+
         output_vec.push((&stemmer.stem(token)).to_string());
     }
-    
+
     return output_vec;
 }
 
@@ -479,21 +581,21 @@ pub fn remove_stop_words(token_in_order : &mut Vec<String>, stop_words : &Vec<&s
 
 }
 
-//function takes two inputs in and returns one jointed output.
-/* fn rearrange_new(to_add1 : &SparseVecWithCount, to_add2 : &SparseVecWithCount) {
-    let present_in_2 = 0;
-    let mut new_swc = SparseVecWithCount{
-        count : to_add1.count + to_add2.count,
-        sparse_vector : CsVec::empty(1),
-    };
 
-    //let mut to_fill = CsVec::new(10 , vec![0_]);
+//removes every token which is special in the given vector of tokens.
+pub fn remove_special_words(token_in_order : &mut Vec<String>, stop_words : &Vec<&str>) {
+    let mut notedown_names: Vec<usize> = vec![];
 
-    let mut iter1 = to_add1.sparse_vector.iter();
-    let mut iter2 = to_add2.sparse_vector.iter();
+    for (index, token) in token_in_order.iter().enumerate() {
+        if is_special(token.chars().nth(1).unwrap_or_default()) {
+            notedown_names.push(index);
+        }
+    }
 
-    //we are going to call next and append that value to the neewly created hashmap.
-    
+    for i in notedown_names.iter().rev() {
+        token_in_order.remove(*i);
+    }
+
+}
 
 
-} */
