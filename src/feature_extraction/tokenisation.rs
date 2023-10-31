@@ -8,38 +8,31 @@
 
 
 use crate::feature_extraction::tokenisation::special_iterator::is_special;
-use std::{collections::{HashMap, hash_map::Entry, HashSet}, ascii::AsciiExt};
-use rayon::prelude::IntoParallelRefIterator;
+use std::{collections::{HashMap, hash_map::Entry}};
 use sprs::CsVec;
 use crate::data_frame::{data_type::DataType, data_frame::DataFrame};
 use rust_stemmers::{Algorithm , Stemmer};
 use self::special_iterator::{SpecialStrings, SpecialStr, SpecialStrClump, SpecialStrDivideall, SpeciaStrDivideCustom};
 
 pub struct Tokens {
-    pub column_index: HashMap<String, SparseVecWithCount>,
-    dimen : Option<usize>
+    ///HashMap<Token , (Index, Count)>
+    pub token_map_index: HashMap<String, (usize , usize)>,
+    ///HashMap<Index , &token(reference to the token)>
+    pub index_map_token: HashMap<usize, String>,
+    ///Store the sequence of each sentence in an encoded form.
+    pub data_in_sequence: Vec<Vec<usize>>,
 }
 
+impl Tokens {
 
-#[derive(Debug , Clone)]
-//we need to convert into some vec of vec of f32 when training but we will decrease the number of tokens by that time. 
-pub struct SparseVecWithCount {
-    index : usize,//to be used to make the input and the output vectors.
-    count : u32,//frequency of the item.
-    sparse_vector: CsVec<u32>,
-}
-
-impl SparseVecWithCount {
-
-    fn distribution(&self) -> u32 {
-        self.count
-    }
-
-    //really inefficient , just use for debugging.
-    //returns the number of strings in which this token exists.
-    //doesn't care about the frequency.
-    fn len(&self) -> usize {
-        self.sparse_vector.iter().count()
+    ///Creating a new token object, need to have the number of samples to pre-allocate the size.
+    ///`DataFrame.number_of_sample` gives you the number of samples as u32, please cast it before using in this function.
+    pub fn new(number_of_samples : usize) -> Tokens {
+        Tokens {
+            token_map_index: HashMap::new(),
+            index_map_token: HashMap::new(),
+            data_in_sequence: vec![vec![] ; number_of_samples]
+        }
     }
 
 }
@@ -293,13 +286,6 @@ pub mod special_iterator {
 
 impl Tokens {
 
-    pub fn new() -> Tokens {
-        Tokens {
-            column_index: HashMap::new(),
-            dimen: None
-        }
-    }
-
     /// Tokenise a certain column of the data_frame
     /// possible only for the string data type.
     /// 
@@ -316,18 +302,17 @@ impl Tokens {
     /// `divide_all` `id = 3` - each charater will be treated as an individual token indipendent of being special or not.
     /// 
     /// `custom_delimit` `id = 4` - characters are divided according to user input delimiting characters.
+    /// 
+    /// Memory consumptive.
     pub fn tokenise(&mut self, frame : &DataFrame, index : usize, iterator_type_id : usize, custom_delimiters : Option<Vec<char>>) {
-
-        let mut index_here = 0;
-
-        //not preallocating the memory because we do not know the number of individual words we are going to come across.
-        let mut token_distribution: Vec<usize> = vec![];
-        let mut count: usize = 0_usize;
-        
+        let start_time = std::time::Instant::now();
 
         match &frame.data[index] {
             DataType::Strings(temp) => {
-                let column_index = &mut self.column_index;
+                let column_index = &mut self.token_map_index;
+                //to keep track of encoding of the present token;
+                let mut present_index = 0_usize;
+                
                 //for each sentence in the given column.
                 temp.iter().enumerate().for_each(|(string_index , sentence)| {
 
@@ -341,32 +326,20 @@ impl Tokens {
                         _ => panic!("no token iterator found with this id"),
                     };
 
-                    count += 1;
-                    
                     //comparing each word after making it lowercase.
-                    //going through the special iterator ;)-
+                    //going through the special iterator.
                     for token in special_string.into_iter() {
-                        //if the word is already occupied then we are going to just add 1 to the token distribution at that index
-                        //or we are going to insert this value with the value 1.
-                        match column_index.entry(token.to_owned()) {
-                            //if we already came across this word
-                            Entry::Occupied(mut temp) => {
-                                let to_mod = temp.get_mut();
-                                to_mod.count+=1;
-                                //we are calling unwrap because there is no way the indices vector is empty even after we got here.
-                                if *to_mod.sparse_vector.indices().last().unwrap() == string_index {
-                                    //this still takes log time but couldn't find a better way.
-                                    match to_mod.sparse_vector.get_mut(string_index) {
-                                        Some(temp) => *temp += 1,
-                                        None => (),
-                                    }
-                                } else {
-                                    to_mod.sparse_vector.append(string_index , 1);
-                                }
-                            },
-                            Entry::Vacant(mut entry) => {
-                                entry.insert(SparseVecWithCount {index : index_here , count: 1, sparse_vector: CsVec::new(frame.number_of_samples as usize , vec![string_index] , vec![1])});
-                                index_here += 1;
+                        match self.token_map_index.entry(token.to_string()) {
+                            Entry::Occupied(mut occupied_value) => {
+                                let index_of_token = occupied_value.get_mut();
+                                self.data_in_sequence[string_index].push(index_of_token.0);
+                                index_of_token.1 += 1;
+                            }
+                            Entry::Vacant(mut empty_value) => {
+                                empty_value.insert((present_index , 1));//insert the new value into `token_map_index` with these values.
+                                self.index_map_token.insert(present_index, token.to_owned());
+                                self.data_in_sequence[string_index].push(present_index);
+                                present_index += 1;
                             },
                         }
                     }
@@ -374,57 +347,47 @@ impl Tokens {
             },
             _ => panic!("You cannot tokenise the float or the category data type"),
         }
-        self.dimen = Some(frame.number_of_samples as usize);
+
+        eprintln!("> Tokenised {} Strings with {} unique tokens in : {:?}", frame.number_of_samples, self.index_map_token.len(), start_time.elapsed());
+
     }
 
     ///to get the statistics about the tokens.
     pub fn get_stats(&self) {
-        println!("Total number of tokens : {}", self.column_index.len());
+        println!("Total number of tokens : {}", self.token_map_index.len());
     }
 
     ///Returns the number of times an individual token appears in all the input strings.
     pub fn get_count(&self , token_name : &str) -> u32 {
-        let temp = self.column_index.get(token_name);
+        let temp = self.token_map_index.get(token_name);
         match temp {
-            Some(temp) => temp.count,
+            Some(temp) => temp.1 as u32,
             None => 0,
-        }
-    }
-
-    //function to delete.
-    pub fn temp(&self) {
-        for (index , element) in self.column_index.iter().enumerate() {
-            eprint!("{:?}", element.0);
-            if index > 1000 {
-                break;
-            }
         }
     }
 
     ///returns the number of tokens that occur less than or equal to the number of times.
     /// doesn't care about the frequency of appearing in different strings.
-    pub fn count_below(&self , threshold  : u32) -> usize {
+    pub fn count_below(&self , threshold  : usize) -> usize {
         let mut count = 0;
-        
-        let keys : Vec<String> = self.column_index.iter().filter(|(_ , value)| value.count <= threshold).map(|(key , _)| key.clone()).collect();
+        let keys : Vec<String> = self.token_map_index.iter().filter(|(_ , value)| value.1 <= threshold).map(|(key , _)| key.clone()).collect();
         count = keys.len();
-
         eprintln!(">Found {} values occuring less than {} times.", count , threshold);
-
         return count;
     }
 
+
     ///removes the tokens which occur less than r equal to a certain threshold number of times all togather.
-    pub fn remove_sparse_tokens(&mut self, threshold  : u32) {
+    pub fn remove_sparse_tokens(&mut self, threshold  : usize) {
 
         let count: usize;
         
-        let keys : Vec<String> = self.column_index.iter().filter(|(_ , value)| value.count <= threshold).map(|(key , _)| key.clone()).collect();
+        let keys : Vec<String> = self.token_map_index.iter().filter(|(_ , value)| value.0 <= threshold).map(|(key , _)| key.clone()).collect();
         count = keys.len();
 
         for key in keys {
-            //eprint!("'{}'", key);
-            self.column_index.remove(&key);
+            let index_to_remove = self.token_map_index.remove(&key).unwrap().0;//removing and getting the index from the token_to_index.
+            self.index_map_token.remove(&index_to_remove);
         }
 
         eprintln!(">Found {} values occuring less than or equal to {} times, Removed.", count , threshold);
@@ -439,7 +402,7 @@ impl Tokens {
 
         let count: usize;
          
-        let keys : Vec<String> = self.column_index.iter()
+        let keys : Vec<String> = self.token_map_index.iter()
             .filter(|(token , _)| (
                 is_special(token.chars().next().unwrap_or_default())) && 
                 (token.is_ascii()) && 
@@ -452,7 +415,7 @@ impl Tokens {
 
         for key in keys {
             //eprint!("'{}'", key);
-            self.column_index.remove(&key);
+            self.token_map_index.remove(&key);
         }
 
         eprintln!(">Found {} special values having size less than or equal to {} times, Removed.", count , threshold);
@@ -480,10 +443,10 @@ impl Tokens {
         let mut exist_tokens = 0;
         let mut presnt_index = 0_usize;
         let mut tokens: Vec<String> = vec![];
-        for element in self.column_index.iter() {
+        for element in self.token_map_index.iter() {
             tokens.push(element.0.clone());
         }
-        let mut buffer = vec![0_u32 ; self.dimen.unwrap()];
+        let mut buffer = vec![0_u32 ; self.data_in_sequence.len()];
         let mut removed_index: Vec<usize> = vec![];//stores the indexes of removed tokens.
 
         'outer: for token_name in tokens.iter() {
@@ -498,30 +461,17 @@ impl Tokens {
             let changed_str: &str = &changed;
 
             if changed_str != token_name {//if the stemmed token is different from the unstemmed one.
-                if let Some(mut sparse_here) = self.column_index.get_mut(changed_str).cloned() {// If the stemmed value exists in the hashmap
-                    sparse_here.sparse_vector = rearrange_new(&sparse_here, self.column_index.get(token_name).unwrap(), &mut buffer);
-                    sparse_here.count +=  self.column_index.get(token_name).unwrap().count; // Addition of the both counts together
-                    sparse_here.index = presnt_index;eprint!("{}, ", presnt_index); presnt_index += 1;
-                    self.column_index.insert(changed_str.to_owned(), sparse_here);//this will update the same key with the new value.
-                    clean_buffer(&mut buffer);//clean buffer for the next iteration.
-                    if remove_changed {//if you want to remove the token that is stemmed and the stemmed value is in the hashmap.
-                        let index = self.column_index.remove(token_name);
-                        removed_index.push(index.unwrap().index);
-                    }
+                if let Some(mut sparse_here) = self.token_map_index.get_mut(changed_str).cloned() {// If the stemmed value exists in the hashmap
+                    
                 } else {
                     if replace_changed {// Replace the token name with the new, stemmed token name while leaving the rest of the data exactly the same
-                        if let Some(old_sparse) = self.column_index.remove(token_name) {
-                            let mut new_sparse = old_sparse.clone(); // Clone the existing data
-                            self.column_index.insert(changed_str.to_string(), new_sparse);
-                        }
+                        
                     } else if remove_changed {//if you want to remove the token that is stemmed and the stemmed value is not in the hashmap.
-                        let index = self.column_index.remove(token_name);
-                        removed_index.push(index.unwrap().index);
+                        
                     }
                 }
             } else {
-                let now = self.column_index.get_mut(changed_str).unwrap();
-                presnt_index += 1;
+                
             }
 
         }
@@ -543,6 +493,7 @@ fn clean_buffer(buffer : &mut Vec<u32>) {
     }
 }
 
+/* 
 //function takes two inputs in and returns one jointed output as a csvec.
 //the buffer MUST have all the elements to be 0_usize before being sent into this function.
 fn rearrange_new(to_add1 : &SparseVecWithCount, to_add2 : &SparseVecWithCount, buffer : &mut Vec<u32>) -> sprs::CsVecBase<Vec<usize>, Vec<u32>, u32> {
@@ -567,6 +518,7 @@ fn rearrange_new(to_add1 : &SparseVecWithCount, to_add2 : &SparseVecWithCount, b
     return new_csvec;
 
 }
+*/
 
 ///for an individual string
 pub fn stemm_string(lower_temp : &str, iterator_type : &str, exception_endings : Vec<&str>) -> Vec<String> {

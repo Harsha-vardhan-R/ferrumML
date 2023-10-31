@@ -86,20 +86,22 @@ fn opening_and_tokenising() {
     let mut new_ = read_csv(r#"testing_data/_archive/training.1600000.processed.noemoticon.csv"#, true, false).unwrap();
     //let start_time = std::time::Instant::now();
     //new_.set_headers(vec!["texthash", "text" , "selected_text" , "sentiment_target" ,"time", "age of user" , "country" , "population" , "area" , "density" ]);
-    //new_.describe();
+    // new_.describe();
+    // new_.head();
     //new_.describe_the("text", false);
     //println!("Time taken to describe is : {:?}", start_time.elapsed());
-    let mut temp = Tokens::new();
+    let mut temp = Tokens::new(new_.number_of_samples as usize);
     let start_time = std::time::Instant::now();
-    temp.tokenise(&new_, 5 , 1 , Some(vec![' ', ',' , '.' , '!' , '(' , ')']));
+    temp.tokenise(&new_, 5 , 2 , Some(vec![' ', ',' , '.' , '!' , '(' , ')']));
+    //dbg!(&temp.data_in_sequence[0..=5]);
     //temp.remove_sparse_tokens(5);
     //temp.remove_sparse_tokens(3);
     //temp.stemm_tokens(vec!["e"], true, true);
     println!("Before stemming 'run' occurs : {} times, and 'running occurs : {} times' ", temp.get_count("run"), temp.get_count("running"));
-    temp.stemm_tokens(vec![], false, false);
+    //temp.stemm_tokens(vec![], false, false);
     println!("After stemming 'run' occurs : {} times, and 'running occurs : {} times' ", temp.get_count("run"), temp.get_count("running"));
     println!("Total number of strings tokenised : {}", new_.number_of_samples);
-    println!("Total number of unique tokens : {}", temp.column_index.len());
+    println!("Total number of unique tokens : {}", temp.token_map_index.len());
     println!("");
     println!("Time taken to tokenise : {:?}", start_time.elapsed());
 }
