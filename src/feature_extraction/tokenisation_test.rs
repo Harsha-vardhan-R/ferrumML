@@ -1,24 +1,17 @@
-
-
 use std::io::Write;
-
 use plotlib::repr::CategoricalRepresentation;
-
 use crate::{feature_extraction::tokenisation::{special_iterator::{SpecialStr, SpecialStrClump, SpecialStrDivideall}, Tokens, stemm_string, remove_stop_words}, file_handling::read_from::read_csv};
-
+use crate::feature_extraction::tokenisation::special_iterator::SpeciaStrDivideCustom;
 
 #[cfg(test)]
 
 
 #[test]
 fn divide_n_print() {
-    use crate::feature_extraction::tokenisation::special_iterator::{SpecialStrDivideall, SpeciaStrDivideCustom};
-
-
     //let input = "happy bday. .i. bevibae %#(%# vev nw . ahvbaw";
-    let input = "हिंदी भाषा एक भारतीय भाषा है और इसका लिपि देवनागरी है। यह विशेष रूप से भारत, नेपाल, और दुनियाभर में बोली जाती है। हिंदी में कई बेहतरीन काव्य और साहित्य के रचयिता हैं।";
+    let input = "` i love mine, too . happy motherï¿½s day to all";
     //let new_one = SpeciaStrDivideCustom::new(&input , vec![' ' , '.' , ',' , '一']);
-    let new_one = SpeciaStrDivideCustom::new(&input , vec![' ' , '।' , ',']);
+    let new_one = SpeciaStrDivideCustom::new(&input , vec![' ' , '¿']);
 
     for i in new_one.into_iter() {
         print!("{} |||| ", i);
@@ -79,64 +72,47 @@ fn divide_n_print_4() {
 
 #[test]
 fn divide_n_print_5() {//for different languages.
-
     //let input = "你好, 这是一个随机生成的中文UTF-8字符串。";
     //let input = "हिंदी भाषा एक भारतीय भाषा है और इसका लिपि देवनागरी है। यह विशेष रूप से भारत, नेपाल, और दुनियाभर में बोली जाती है। हिंदी में कई बेहतरीन काव्य और साहित्य के रचयिता हैं।";
     let input = "తెలుగు భాష దక్షిణ భారతదేశంలో మాతృభాషగా ప్రసిద్ధంగా ఉంది. ఈ భాష తెలుగు లిపితో రాసుకొనబడతాయి. ఇది కవిత, సాహిత్యం, మరియు కళాశిల్పం లో మంచి పరిణామం చేస్తుంది.";
-
     let new_one = SpecialStrClump::new(&input);
-
     let temp = new_one.into_iter().map(|str_| str_.to_owned()).collect::<Vec<String>>();
-
-
     assert_eq!(temp , vec!["తెలుగు" ,"భాష" ,"దక్షిణ" ,"భారతదేశంలో" ,"మాతృభాషగా" ,"ప్రసిద్ధంగా" ,"ఉంది." ,"ఈ" ,"భాష" ,"తెలుగు" ,"లిపితో" ,"రాసుకొనబడతాయి." ,"ఇది" ,"కవిత," ,"సాహిత్యం," ,"మరియు" ,"కళాశిల్పం" ,"లో" ,"మంచి" ,"పరిణామం" ,"చేస్తుంది."]);
-
 }
 
 
 #[test]
 fn opening_and_tokenising() {
-
     let mut new_ = read_csv(r#"testing_data/_archive/training.1600000.processed.noemoticon.csv"#, true, false).unwrap();
     //let start_time = std::time::Instant::now();
-
     //new_.set_headers(vec!["texthash", "text" , "selected_text" , "sentiment_target" ,"time", "age of user" , "country" , "population" , "area" , "density" ]);
-
-    new_.describe();
-
+    //new_.describe();
     //new_.describe_the("text", false);
-
     //println!("Time taken to describe is : {:?}", start_time.elapsed());
-    
-
     let mut temp = Tokens::new();
     let start_time = std::time::Instant::now();
-    temp.tokenise(&new_, 5 , "clump_special");
-
-    println!("Time taken to tokenise is : {:?}", start_time.elapsed());
-
-    temp.remove_sparse_tokens(3);
-
-    temp.stemm_tokens(vec!["e"], true, true);
-
-    println!("'...' occurs {} times, total number of tokens is : {}", temp.get_count("..."), temp.column_index.len());
-    println!("and that of '.' occurs is : {} times", temp.get_count("."));
-
-    
-
+    temp.tokenise(&new_, 5 , 1 , Some(vec![' ', ',' , '.' , '!' , '(' , ')']));
+    //temp.remove_sparse_tokens(5);
+    //temp.remove_sparse_tokens(3);
+    //temp.stemm_tokens(vec!["e"], true, true);
+    println!("Before stemming 'run' occurs : {} times, and 'running occurs : {} times' ", temp.get_count("run"), temp.get_count("running"));
+    temp.stemm_tokens(vec![], false, false);
+    println!("After stemming 'run' occurs : {} times, and 'running occurs : {} times' ", temp.get_count("run"), temp.get_count("running"));
+    println!("Total number of strings tokenised : {}", new_.number_of_samples);
+    println!("Total number of unique tokens : {}", temp.column_index.len());
+    println!("");
+    println!("Time taken to tokenise : {:?}", start_time.elapsed());
 }
 
 #[test]
-
-
-
 fn big_file_tokenise_benchmark() {
     let start_time = std::time::Instant::now();
 
     use std::io::Write;
 
     let new_text = std::fs::read_to_string(r#"testing_data/shake.txt"#).expect("this file does not even exist man!!");
-    let special = SpecialStrClump::new(&new_text);
+    //vec![' ' , '.' , '\u{feff}' , '\n' , '*' , '\r' , ',']
+    let special = SpeciaStrDivideCustom::new(&new_text , vec![' ' , '.' , '\u{feff}' , '\n' , '*' , '\r' , ',' , '?' , '-', '’', '"', '`']);
 
     let tokkk = special.into_iter().collect::<Vec<&str>>();
 

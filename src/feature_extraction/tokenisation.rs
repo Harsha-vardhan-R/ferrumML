@@ -9,13 +9,11 @@
 
 use crate::feature_extraction::tokenisation::special_iterator::is_special;
 use std::{collections::{HashMap, hash_map::Entry, HashSet}, ascii::AsciiExt};
-use fastrand::char;
-use plotters::prelude::ToGroupByRange;
+use rayon::prelude::IntoParallelRefIterator;
 use sprs::CsVec;
 use crate::data_frame::{data_type::DataType, data_frame::DataFrame};
 use rust_stemmers::{Algorithm , Stemmer};
-
-use self::special_iterator::{SpecialStrings, SpecialStr, SpecialStrClump, SpecialStrDivideall};
+use self::special_iterator::{SpecialStrings, SpecialStr, SpecialStrClump, SpecialStrDivideall, SpeciaStrDivideCustom};
 
 pub struct Tokens {
     pub column_index: HashMap<String, SparseVecWithCount>,
@@ -23,7 +21,7 @@ pub struct Tokens {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug , Clone)]
 //we need to convert into some vec of vec of f32 when training but we will decrease the number of tokens by that time. 
 pub struct SparseVecWithCount {
     index : usize,//to be used to make the input and the output vectors.
@@ -56,7 +54,7 @@ pub mod special_iterator {
     pub enum SpecialStrings<'a> {///treats all the speacial charecters as different.
         DivideSpecial(SpecialStr<'a>),///treats consecutive special characters as a single token.
         ClumpSpecial(SpecialStrClump<'a>),///returns an iterator that returns each char except the whitespces.
-        DivideAll(SpecialStrDivideall<'a>),///returns an iterator which divides the input string at whitespaces and stop-periods which user provides.
+        DivideAll(SpecialStrDivideall<'a>),///returns an iterator which divides the input string at de-limiters which user provides, for multilingual tokenization.
         DivideCustomSpaces(SpeciaStrDivideCustom<'a>),
     }
 
@@ -305,16 +303,20 @@ impl Tokens {
     /// Tokenise a certain column of the data_frame
     /// possible only for the string data type.
     /// 
-    /// definition of a special character - `!c.is_ascii_alphanumeric() && !c.is_whitespace()`//try adding !c.is_ascii() , we can tokenise even other languages properly
+    /// definition of a special character - `!c.is_ascii_alphanumeric() && !c.is_whitespace()`.(not used in the custom_delimit iterator)
+    /// 
+    /// `custom_delimiters` will not be considered for any other iterator_type other than custom_delimit.
     /// 
     /// currently imple types for iterator types:
     /// 
-    /// `divide_special` - tokens after each word is divided at white spaces and special chaacters consecutive special charaters will be treated as individual,
+    /// `divide_special` `id = 1` - tokens after each word is divided at white spaces and special chaacters consecutive special charaters will be treated as individual,
     /// 
-    /// `clump_special` - tokens after each word is divided at white spaces and special chaacters consecutive special charaters will be treated as a single token until terminated by a whitespace or a normal character
+    /// `clump_special` `id = 2` - tokens after each word is divided at white spaces and special chaacters consecutive special charaters will be treated as a single token until terminated by a whitespace or a normal character
     /// 
-    /// `divide_all` - each charater will be treated as an individual token indipendent of being special or not.
-    pub fn tokenise(&mut self, frame : &DataFrame, index : usize, iterator_type : &str) {
+    /// `divide_all` `id = 3` - each charater will be treated as an individual token indipendent of being special or not.
+    /// 
+    /// `custom_delimit` `id = 4` - characters are divided according to user input delimiting characters.
+    pub fn tokenise(&mut self, frame : &DataFrame, index : usize, iterator_type_id : usize, custom_delimiters : Option<Vec<char>>) {
 
         let mut index_here = 0;
 
@@ -331,11 +333,12 @@ impl Tokens {
 
                     let lower_temp = sentence.to_lowercase();
 
-                    let special_string: SpecialStrings = match iterator_type {
-                        "divide_special" => SpecialStrings::DivideSpecial(SpecialStr::new(&lower_temp)),
-                        "clump_special" => SpecialStrings::ClumpSpecial(SpecialStrClump::new(&lower_temp)),
-                        "divide_all" => SpecialStrings::DivideAll(SpecialStrDivideall::new(&lower_temp)),
-                        _ => panic!("no token iterator found with this name"),
+                    let special_string: SpecialStrings = match iterator_type_id {
+                        1 => SpecialStrings::DivideSpecial(SpecialStr::new(&lower_temp)),
+                        2 => SpecialStrings::ClumpSpecial(SpecialStrClump::new(&lower_temp)),
+                        3 => SpecialStrings::DivideAll(SpecialStrDivideall::new(&lower_temp)),
+                        4 => SpecialStrings::DivideCustomSpaces(SpeciaStrDivideCustom::new(&lower_temp, custom_delimiters.clone().expect("a `Some(Vec<char>)` is expected."))),
+                        _ => panic!("no token iterator found with this id"),
                     };
 
                     count += 1;
@@ -461,44 +464,66 @@ impl Tokens {
     ///you can create an exception for this based on certain endings.
     ///for example if you have an element `ing` int the exception_vector it does not care to do any thing with the tokens that end with `ing`.
     ///
-    ///`keep_changed` - if true, we are going to keep the tokens which are changed AND not already present in the hashmap.
+    ///`remove_changed` - keep or remove the changed values.`
     /// 
     ///`replace_changed` ##OVERRIDES OTHER PARAMETERS## - if true, we are going to replace just the token with the new stemmed one IF it does not exist in the hashmap already.
     /// 
     /// This method is `ALWAYS` going to skip the tokens which are special. so, obviously does not work for any other languages other than english.(well, for now at least)
-    pub fn stemm_tokens(&mut self, exception_vector : Vec<&str>, keep_changed: bool, replace_changed: bool) {
+    /// 
+    /// if replace_changed is false and remove_changed is true then any value whose stemmed value is not present in the hashmap will be removed.
+    pub fn stemm_tokens(&mut self, exception_vector: Vec<&str>, remove_changed: bool, replace_changed: bool) {
+        //A LOT OF CLONING HAPPENS HERE, "MAYBE" SHOULD BE IMPROVED IF POSSIBLE.
+        //PLEASE FIND A WAY TO PARALLALISE THIS, PRESENTLY THIS IS EXTREMELY SLOW.
 
         let stemmer = Stemmer::create(Algorithm::English);
         let mut new_tokens = 0;
         let mut exist_tokens = 0;
-        let mut tokens_to_remove: Vec<String> = vec![];
-        //this is used to combine the csvectors of two different tokens if needed.
+        let mut presnt_index = 0_usize;
+        let mut tokens: Vec<String> = vec![];
+        for element in self.column_index.iter() {
+            tokens.push(element.0.clone());
+        }
         let mut buffer = vec![0_u32 ; self.dimen.unwrap()];
+        let mut removed_index: Vec<usize> = vec![];//stores the indexes of removed tokens.
 
-        'outer: for (string , sparse) in self.column_index.iter() {
-
-            if is_special(string.chars().nth(1).unwrap()) {//no stemming on special tokens.
-                continue 'outer;
-            }
+        'outer: for token_name in tokens.iter() {
 
             for exception in exception_vector.iter() {
-                if string.ends_with(*exception) {//to the next token.
+                if token_name.ends_with(*exception) {//to the next token.
                     continue 'outer;
                 }
             }
 
-            let changed = stemmer.stem(&string);
+            let changed = stemmer.stem(token_name);
             let changed_str: &str = &changed;
 
-            if changed_str != string {//if the stemmed token is different from the unstemmed one.
-                if self.column_index.contains_key(changed_str) {
-
-                } else { // create a new token in the hashmap and fill it accordingly.
-
+            if changed_str != token_name {//if the stemmed token is different from the unstemmed one.
+                if let Some(mut sparse_here) = self.column_index.get_mut(changed_str).cloned() {// If the stemmed value exists in the hashmap
+                    sparse_here.sparse_vector = rearrange_new(&sparse_here, self.column_index.get(token_name).unwrap(), &mut buffer);
+                    sparse_here.count +=  self.column_index.get(token_name).unwrap().count; // Addition of the both counts together
+                    sparse_here.index = presnt_index;eprint!("{}, ", presnt_index); presnt_index += 1;
+                    self.column_index.insert(changed_str.to_owned(), sparse_here);//this will update the same key with the new value.
+                    clean_buffer(&mut buffer);//clean buffer for the next iteration.
+                    if remove_changed {//if you want to remove the token that is stemmed and the stemmed value is in the hashmap.
+                        let index = self.column_index.remove(token_name);
+                        removed_index.push(index.unwrap().index);
+                    }
+                } else {
+                    if replace_changed {// Replace the token name with the new, stemmed token name while leaving the rest of the data exactly the same
+                        if let Some(old_sparse) = self.column_index.remove(token_name) {
+                            let mut new_sparse = old_sparse.clone(); // Clone the existing data
+                            self.column_index.insert(changed_str.to_string(), new_sparse);
+                        }
+                    } else if remove_changed {//if you want to remove the token that is stemmed and the stemmed value is not in the hashmap.
+                        let index = self.column_index.remove(token_name);
+                        removed_index.push(index.unwrap().index);
+                    }
                 }
-            } else {//if the value already exists in the Hashmap.
-                
+            } else {
+                let now = self.column_index.get_mut(changed_str).unwrap();
+                presnt_index += 1;
             }
+
         }
 
     }
@@ -510,6 +535,12 @@ impl Tokens {
 
     }
 
+}
+
+fn clean_buffer(buffer : &mut Vec<u32>) {
+    for i in 0..buffer.len() {
+        buffer[i] = 0;
+    }
 }
 
 //function takes two inputs in and returns one jointed output as a csvec.
