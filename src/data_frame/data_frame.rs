@@ -4,7 +4,6 @@ use std::{error::Error, fs::File, io::BufReader};
 use csv::ReaderBuilder;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator, ParallelBridge, IntoParallelRefIterator, IndexedParallelIterator};
 use std::collections::HashMap;
-use rayon::prelude;
 use rand::seq::SliceRandom;
 use super::data_type::DataType;
 

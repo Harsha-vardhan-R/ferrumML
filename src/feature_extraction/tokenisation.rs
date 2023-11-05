@@ -39,7 +39,7 @@ impl Tokens {
 
 
 pub mod special_iterator {
-    use std::{collections::{HashSet, HashMap}, hash};
+    use std::collections::HashMap;
 
 
     ///An enum that stores different types of special iterator types.
@@ -325,7 +325,7 @@ impl Tokens {
                         4 => SpecialStrings::DivideCustomSpaces(SpeciaStrDivideCustom::new(&lower_temp, custom_delimiters.clone().expect("a `Some(Vec<char>)` is expected."))),
                         _ => panic!("no token iterator found with this id"),
                     };
-
+                    
                     //comparing each word after making it lowercase.
                     //going through the special iterator.
                     for token in special_string.into_iter() {
@@ -343,6 +343,7 @@ impl Tokens {
                             },
                         }
                     }
+
                 });
             },
             _ => panic!("You cannot tokenise the float or the category data type"),
@@ -358,7 +359,7 @@ impl Tokens {
     }
 
     ///Returns the number of times an individual token appears in all the input strings.
-    pub fn get_count(&self , token_name : &str) -> u32 {
+    pub fn get_count(&self , token_name : &str) -> u32 { 
         let temp = self.token_map_index.get(token_name);
         match temp {
             Some(temp) => temp.1 as u32,

@@ -52,7 +52,10 @@ pub mod clustering {
     }
 }
 
-//harsha  is a fool
+pub mod neural_networks {
+    pub mod neural_network;
+    mod neural_network_test;
+}
 
 pub mod supervised {
     pub mod naive_bayes {
