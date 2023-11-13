@@ -55,6 +55,7 @@ pub trait DerivativeValueAt {
 fn max_with_zero(x : f32) -> f32 {
     if x > 0.0 {x} else {0.0}
 }
+
 fn tanh(x : f32) -> f32 { 
     let plus = E.powf(x); 
     let minus = E.powf(-x); 
@@ -62,7 +63,6 @@ fn tanh(x : f32) -> f32 {
 }//bad naming cause i want to shoot myself in the foot.
 
 static mut LEAKY : f32 = 0.01_f32;
-
 pub fn set_leaky_value(value : f32) {
     assert!(value > 0.0 && value < 1.0 , "The input value must be between 0.0 and 1.0 exclusively");
     unsafe { LEAKY = value };
@@ -133,12 +133,12 @@ impl CostFunction {
             },
             CostFunction::BCE => {
                 let mut to_return = 0.0_f32;
-                
+                todo!();
                 to_return
             },
             CostFunction::CCE => {
                 let mut to_return = 0.0_f32;
-                
+                todo!();
                 to_return
             },
             CostFunction::MAE => {
@@ -262,6 +262,8 @@ impl NeuralNet {
         let mut count = 0;
         let mut target_type: DataType;
 
+        assert!(layer_widths.len()+1 == activation_function.len(), "You need to provide the activation fumction for all the hidden nodes and also the ouput node, if you do not want give any activation function, just give itActivationFunction::Linear");
+
 
         //the type of data that has to be predicted.
         let output_nodes_here : usize = match &data_frame.data[target_class[0]] {
@@ -306,8 +308,9 @@ impl NeuralNet {
         ///The weights are randomly given value between 0..1
         let mut weight_matrices: Vec<Vec<Vec<f32>>> = vec![];
         for (present_index, width) in layer_width[1..].iter().enumerate() {
-            weight_matrices.push(vec![vec![fastrand::f32(); layer_width[present_index]]; *width]);
+            weight_matrices.push(vec![vec![0.0_f32; layer_width[present_index]]; *width]);
         }
+        Self::fill_rand(&mut weight_matrices);
         
         ///The biases are set to zero at the start.
         let mut bias_vectors = vec![];
@@ -333,6 +336,16 @@ impl NeuralNet {
 
     }
 
+    fn fill_rand(input : &mut Vec<Vec<Vec<f32>>>) {
+        input.iter_mut().for_each(|x| {
+            x.iter_mut().for_each(|y| {
+                y.iter_mut().for_each(|z| {
+                    *z = fastrand::f32();
+                });
+            });
+        });
+    }
+
     ///Prints the present values of the weights to stdout, as individual matrices.
     pub fn debug_weights(&self) {
         for i in self.weight_matrices.iter() {
@@ -342,19 +355,45 @@ impl NeuralNet {
 
     ///prints the bias vectors as they are presently to the stdout.
     pub fn debug_biases(&self) {
-        
-    } 
-
-
-    pub fn forward_pass(&self, input_values: &Vec<f32>) {
-
+        for i in self.bias_vectors.iter() {
+            dbg!(i);
+        }
     }
+
+    ///prints the current activation values of the stdout.(it does not contain the input values but does contain the last output layer values).
+    pub fn debug_activation_values(&self) {
+        for i in self.hidden_layer_active_values.iter() {
+            dbg!(i);
+        }
+    }
+
+    ///The last layer of activation gives the current active values, after this function is run once.
+    pub fn feed_forward(&mut self, input_values: &Vec<f32>) {
+        assert!(input_values.len() == self.layer_width[0], "The input dimensionality must be same for both the NeuralNet and the present input_values");
+
+        for (present_index, present_layer_width) in self.layer_width[1..].iter().enumerate() {
+            for present_active_node in 0..*present_layer_width {
+                let sum_of_product: f32 = if present_index == 0 {
+                    input_values.iter().zip(&self.weight_matrices[0][present_active_node]).map(|(x, w)| x * w).sum()
+                } else {
+                    self.hidden_layer_active_values[present_index - 1].iter().zip(&self.weight_matrices[present_index][present_active_node]).map(|(x, w)| x * w).sum()
+                };
+    
+                self.hidden_layer_active_values[present_index][present_active_node] += self.activation_function[present_index].function_at(
+                    self.bias_vectors[present_index][present_active_node] + sum_of_product
+                );
+            }
+        }
+    }
+
 
     pub fn get_layer_detes(&self) -> &Vec<usize> {
         &self.layer_width
     }
  
 }
+
+
 
 
 
