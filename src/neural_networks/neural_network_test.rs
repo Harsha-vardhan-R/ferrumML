@@ -22,7 +22,7 @@ fn activation_function() {
 fn new_Struct() {
     let mut temp = read_csv(r#"testing_data/Iris.csv"#, true, false).unwrap();
     temp.remove_columns(&vec![0]);
-    let mut hava = NeuralNet::new(&temp, vec![4], vec![4, 5, 9, 9], vec![ActivationFunction::ReLu, ActivationFunction::ReLu, ActivationFunction::ReLu, ActivationFunction::ReLu ,ActivationFunction::ReLu], super::neural_network::CostFunction::BCE, 0.1, 4);
+    let mut hava = NeuralNet::new(&temp, vec![4], vec![4, 4], vec![ActivationFunction::ReLu, ActivationFunction::ReLu , ActivationFunction::ReLu], super::neural_network::CostFunction::BCE, 0.1, 4);
     hava.debug_biases();
     hava.debug_weights();
     println!("{:?}", hava.get_layer_detes());

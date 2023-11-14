@@ -7,21 +7,21 @@
 //! Can train continuous or discrete targets, the algo automatically fits the desired type of the output(depending on the type it is given as the target_index in the NeuralNet::new() function).
 
 
-use std::collections::HashMap;
-use std::{f32::consts::E, collections::HashSet};
+use std::collections::{HashMap, HashSet};
+use std::f32::consts::E;
 use fastrand::f32;
-use crate::data_frame::data_type::DataType;
-use crate::data_frame::return_type::ReturnType;
-use crate::data_frame::data_frame;
-use crate::{data_frame::data_frame::DataFrame, feature_extraction::tokenisation::special_iterator::SpecialStrDivideall};
-use crate::trait_definition::{MLalgo, Predict};
+use crate::data_frame::{data_type::DataType, return_type::ReturnType, data_frame};
+use crate::data_frame::data_frame::DataFrame;
 
 
 //***************************************
 //ACTIVATION FUNCTIONS
 //***************************************
-///these are the different activation functions,
-///the functions and their differentials are defined below.
+///These are the different activation functions,
+/// 
+///The functions and their differentials are defined below.
+/// 
+///You can create your own ActivationFunction by implementing the traits `FunctionValueAt` and `DerivativeValueAt`
 #[derive(Debug)]
 pub enum ActivationFunction {
     ///         x                             ,Identity
@@ -36,7 +36,7 @@ pub enum ActivationFunction {
     BinaryStep,
     ///         ln(1 + e^x)                   ,Soft plus
     SoftPlus,
-    ///         {ax if x <= 0; x if x > 0}    ,Leaky ReLU  --  (can have any `a` value)(but default set to 0.01)
+    ///         {ax if x <= 0; x if x > 0}    ,Leaky ReLU  --  (can have any `a` value)(but default set to 0.01), can be changed using the set_leaky_value() function.
     LeakyReLU,
 }
 
@@ -63,6 +63,7 @@ fn tanh(x : f32) -> f32 {
 }//bad naming cause i want to shoot myself in the foot.
 
 static mut LEAKY : f32 = 0.01_f32;
+///Change the `Leaky` value in `ActivationFunction::LeakyReLU`.
 pub fn set_leaky_value(value : f32) {
     assert!(value > 0.0 && value < 1.0 , "The input value must be between 0.0 and 1.0 exclusively");
     unsafe { LEAKY = value };
@@ -109,12 +110,13 @@ impl DerivativeValueAt for ActivationFunction {
 //COST FUNCTIONS
 //*************************************************
 ///different cost functions to be used in Neural Networks.
+/// TODO : HUBER LOSS
 pub enum CostFunction {
     ///     mean squared error, quadratic cost functiion.
     MSE,
-    ///     binary cross entropy, assumes the input values are 0 or 1.
+    ///     binary cross entropy, assumes the input values are 0 or 1.(ouput is a single value).
     BCE,
-    ///     categorical cross entropy, asssumes target is one-hot encoding. use for multi-class classification.
+    ///     categorical cross entropy, asssumes more than 2 different category output. use for multi-class classification.
     CCE,
     ///     mean absolute error, linear cost function.
     MAE,
@@ -133,13 +135,17 @@ impl CostFunction {
             },
             CostFunction::BCE => {
                 let mut to_return = 0.0_f32;
-                todo!();
+                for (index, present_node) in present_values.iter().enumerate() {
+                    to_return += -(ground_truth[index]*((*present_node).ln()) + (1.0-ground_truth[index]*(1.0-*present_node).ln()));
+                }
                 to_return
             },
             CostFunction::CCE => {
                 let mut to_return = 0.0_f32;
-                todo!();
-                to_return
+                for (index, present_node) in present_values.iter().enumerate() {
+                    to_return += ground_truth[index]*(*present_node).ln();
+                }
+                -to_return
             },
             CostFunction::MAE => {
                 let mut to_return = 0.0_f32;
@@ -223,7 +229,7 @@ pub struct NeuralNet {
         ///each of the matrices is of the dimensions m*n where m is the size of the next layer while n is the size of the current layer.The weight from a node j to i in the next layer is given by `weight_matrices[hidden_layer_index][i][j]`
         /// 
         ///for example if you have a layer 'i' and a layer 'j', and the layer i is the n'th hidden layer, then the value of the weight from arbitrary i and j is : weight_matrices[n][j][i];(n=0 gives the weights between input and the first hidden layer).
-    weight_matrices: Vec<Vec<Vec<f32>>>,
+    pub weight_matrices: Vec<Vec<Vec<f32>>>,
         ///biases, a vector that stores the bias value for each node from the first hidden layer to the output layer(inclusively).
         /// 
         ///length: number of hidden layers + 1;
@@ -237,9 +243,16 @@ pub struct NeuralNet {
         ///Stores the type of DataType the target variable is, will be easier for us to select different algos based on the type.
     target_type: crate::data_frame::data_type::DataType,
     target_class: Vec<usize>,
+        ///This stores the type of stuff to predict in order.
+    pub predict_out: Vec<DataType>,//vec because we can be in a multi-task situation, where we need to predict multiple outputs in the same network at the same time.(Possible only for the float type)
+        ///The output map that is needed to be used to calculate how the output is calculated.
+    output_map: OutputMap,
 }
 
 
+
+/////////////////////////////////////////
+/////////////////////////////////////////
 impl NeuralNet {
     
 
@@ -256,7 +269,7 @@ impl NeuralNet {
     /// activation_function : takes a Activation function type for example `ActivationFunctions::Sigmoid`
     /// 
     /// learning_step : how fast or slow the values get changed for 
-    pub fn new(data_frame: &DataFrame, target_class: Vec<usize>, layer_widths: Vec<usize>, activation_function: Vec<ActivationFunction>, cost_function : CostFunction, learning_step: f32, input_size : usize) -> Self {
+    pub fn new(data_frame: &DataFrame, target_class: Vec<usize>, layer_widths: Vec<usize>, activation_function: Vec<ActivationFunction>, cost_function : CostFunction, learning_step: f32, output_map : OutputMap, input_size : usize) -> Self {
         let mut set: HashSet<DataType> = HashSet::new();
         let mut map_n_counter = HashMap::<String, usize>::new();
         let mut count = 0;
@@ -318,20 +331,19 @@ impl NeuralNet {
             bias_vectors.push(vec![0.0_f32 ; *width]);
         }
 
-
-
         NeuralNet { 
             in_out_size: (input_size , output_nodes_here),
-            //the activation values are also initiated to 0.0, not that it matters anyways.
-            hidden_layer_active_values: bias_vectors.clone(), 
+            hidden_layer_active_values: bias_vectors.clone(),//the activation values are also initiated to 0.0, not that it matters anyways.
             layer_width, 
             weight_matrices, 
             bias_vectors,
             activation_function,
+            output_map,
             learning_step,
             cost_function,
             target_type,
             target_class, 
+            predict_out : todo!(),
         }
 
     }
@@ -341,6 +353,16 @@ impl NeuralNet {
             x.iter_mut().for_each(|y| {
                 y.iter_mut().for_each(|z| {
                     *z = fastrand::f32();
+                });
+            });
+        });
+    }
+
+    fn fill_same(input : &mut Vec<Vec<Vec<f32>>>, same : f32) {
+        input.iter_mut().for_each(|x| {
+            x.iter_mut().for_each(|y| {
+                y.iter_mut().for_each(|z| {
+                    *z = same;
                 });
             });
         });
@@ -367,8 +389,16 @@ impl NeuralNet {
         }
     }
 
+    ///Returns the number of nodes in each layer including the input and the ouput layers.
+    pub fn get_layer_detes(&self) -> &Vec<usize> {
+        &self.layer_width
+    }
+
+    /////////////////////////////////////////////
     ///The last layer of activation gives the current active values, after this function is run once.
-    pub fn feed_forward(&mut self, input_values: &Vec<f32>) {
+    /// 
+    ///Returns the last(output layer), used in the prediction function.
+    pub fn feed_forward(&mut self, input_values: &Vec<f32>) -> &Vec<f32> {
         assert!(input_values.len() == self.layer_width[0], "The input dimensionality must be same for both the NeuralNet and the present input_values");
 
         for (present_index, present_layer_width) in self.layer_width[1..].iter().enumerate() {
@@ -384,28 +414,50 @@ impl NeuralNet {
                 );
             }
         }
+
+        &self.hidden_layer_active_values[0]
+
     }
 
 
-    pub fn get_layer_detes(&self) -> &Vec<usize> {
-        &self.layer_width
+    fn fit_string(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {
+
     }
- 
+
+    //Basically curve fitting.
+    fn fit_float(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {
+
+    }
+    
+    fn fit_category(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {
+
+    }
+
+    //Multiple curve fitting.
+    pub fn fit_multi_task_float(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {
+
+    }
+
+
 }
 
 
-
-
-
-impl MLalgo for NeuralNet {
+impl NeuralNet {
+    ///The fit function automatically changes the type of algorithm used based on the target type.
     fn fit(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {
-        todo!();
+        match &self.target_type {
+            DataType::Strings(_) => self.fit_string(X_train, y_train),
+            DataType::Floats(_) => if self.target_class.len() == 1 {
+                self.fit_float(X_train, y_train);
+            } else {
+                panic!("Please use 'self.fit_multi_task_float(X_train, y_train)' for this purpose");
+            },
+            DataType::Category(_) => todo!(),
+        }
     }
-}
 
-
-impl Predict for NeuralNet {
     fn predict(&self, point : &Vec<f32>) -> ReturnType {
         todo!();
     }
+
 }
