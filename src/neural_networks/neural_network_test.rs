@@ -1,7 +1,5 @@
 
 
-use std::process::exit;
-
 use crate::data_frame::{data_frame::*, data_type::DataType};
 use rand::random;
 
@@ -82,22 +80,20 @@ fn sin_validation() -> Result<(), Box<dyn std::error::Error>> {
         .build_cartesian_2d(0.0..9.0, -1.0..1.0)?;
 
 
-    let mut neural_net = NeuralNet::new(&df, vec![1], vec![16, 16, 16],
-        vec![ActivationFunction::Tanh, ActivationFunction::Tanh, ActivationFunction::Tanh, ActivationFunction::Tanh], CostFunction::MSE,
-        -0.001, OutputMap::ArgMax, 1);
+    let mut neural_net = NeuralNet::new(&df, vec![1], vec![256, 256],
+        vec![ActivationFunction::Tanh, ActivationFunction::Tanh, ActivationFunction::Tanh], CostFunction::MSE,
+         -0.1, OutputMap::ArgMax, 1);
 
     neural_net.set_bias_clip_value(1000.0);
     neural_net.set_weight_clip_value(1000.0);
-    neural_net.xavier_weights();
-    //neural_net.debug_weights();
-
+    
     neural_net.fit(&X_train, &y_train);
 
     // neural_net.debug_activation_values();
     // neural_net.debug_biases();
     // neural_net.debug_chained_derivaives();
     // neural_net.debug_net_values();
-    
+    // neural_net.debug_weights();
 
 
     chart.draw_series(
