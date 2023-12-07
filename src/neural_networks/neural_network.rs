@@ -9,8 +9,13 @@
 
 use std::collections::{HashMap, HashSet};
 use std::f32::consts::E;
+use std::fmt::format;
 use fastrand::f32;
-use rand::random;
+use plotters::backend::BitMapBackend;
+use plotters::chart::ChartBuilder;
+use plotters::drawing::IntoDrawingArea;
+use plotters::style::WHITE;
+use rand::{random, Rng};
 use rayon::iter::plumbing::bridge;
 use crate::data_frame::{data_type::DataType, return_type::ReturnType};
 use crate::{data_frame::data_frame::DataFrame, trait_definition::MLalgo};
@@ -422,7 +427,13 @@ impl NeuralNet {
     /// should be called before the fitting process.
     /// works better with tanh and sigmoid activation functions.
     pub fn xavier_weights(&mut self) {
-
+        for (input_index, input_node_len) in self.layer_width.iter().skip(1).enumerate() {
+            for weight_node_group in self.weight_matrices[input_index].iter_mut() {
+                for node_prev_weight in weight_node_group.iter_mut() {
+                    *node_prev_weight = rand::thread_rng().gen_range((-1.0/(*input_node_len as f32).sqrt())..((1.0)/(*input_node_len as f32).sqrt()));
+                }
+            }
+        }
     }
 
     ///this will initialize the weights based on "He" Initialization for all the layers.
@@ -547,7 +558,7 @@ impl NeuralNet {
     //Takes in the value of the output and what `should` they be.
     //Modifies the values of weights and the biases, to make the 'cost' less.
     // This function does NOT use any kind of parallelism.
-    fn feed_forward_back_propogate(&mut self, input_values: &Vec<f32>, ground: &Vec<f32>) -> f32 {
+    pub fn feed_forward_back_propogate(&mut self, input_values: &Vec<f32>, ground: &Vec<f32>) -> f32 {
         //feeding forward
         self.feed_forward(input_values);
         //the `chained derivative` field of the struct stores the chain of derivaives till the 'net' value of the node at the respective index in the other fields such as active values and net values.
@@ -648,13 +659,6 @@ impl NeuralNet {
         for epoch_index in 0..100 {
             let mut present_cost_max = f32::MIN;
             for (index, present_theta) in X_train.iter().enumerate() {
-                // dbg!(present_theta, ground[index]);
-                // self.debug_activation_values();
-                // self.debug_biases();
-                // self.debug_chained_derivaives();
-                // self.debug_net_values();
-                // self.debug_weights();
-
                 //setting the ground truth value for this sample.
                 placeholder_vector[0] = ground[index];
                 //this function first feeds forward, then back-propogates.
@@ -663,9 +667,7 @@ impl NeuralNet {
                 if (present_cost > present_cost_max) {
                     present_cost_max = present_cost;
                 }
-                //if the cost is less than threshold we are going to not train the model any more.
             }
-           
             println!("Epoch: [{:03}/100], Maximum cost: {:010}", epoch_index+1, present_cost_max);
         }
 
