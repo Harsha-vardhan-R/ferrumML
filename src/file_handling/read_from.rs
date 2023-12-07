@@ -3,11 +3,11 @@ use std::{error::Error, fs::File, io::BufReader};
 use csv::{ReaderBuilder, StringRecord};
 use crate::data_frame::{data_frame::*, data_type::DataType};
 
-// todo -- we still need to find a way to load more than the present ram sized datasets, like the panda chunks -- we also need to create completely new data_frame that can dynamically load chunks and a
+// todo -- we still need to find a way to load more than the present ram sized datasets, like the panda's chunks -- we also need to create completely new data_frame that can dynamically load chunks and a
 //new train test splitter and a new accuracy scorer but this is will be taken care of after some time(like long time).
 
-//this function may seem dumb for loading the data like 4 times , but i do not think we can allocate the space without that.
 
+//this function may seem dumb for loading the data like 4 times , but i do not think we can allocate the space without that.
 pub fn read_csv(file_path : &str , header : bool , category : bool) -> Result<DataFrame, Box<dyn Error>> {
     let start_time = std::time::Instant::now();
 
