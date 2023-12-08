@@ -7,16 +7,9 @@
 //! Can train continuous or discrete targets, the algo automatically fits the desired type of the output(depending on the type it is given as the target_index in the NeuralNet::new() function).
 
 
-use std::collections::{HashMap, HashSet};
-use std::f32::consts::E;
-use std::fmt::format;
+use std::{collections::{HashMap, HashSet}, f32::consts::E};
 use fastrand::f32;
-use plotters::backend::BitMapBackend;
-use plotters::chart::ChartBuilder;
-use plotters::drawing::IntoDrawingArea;
-use plotters::style::WHITE;
 use rand::{random, Rng};
-use rayon::iter::plumbing::bridge;
 use crate::data_frame::{data_type::DataType, return_type::ReturnType};
 use crate::{data_frame::data_frame::DataFrame, trait_definition::MLalgo};
 

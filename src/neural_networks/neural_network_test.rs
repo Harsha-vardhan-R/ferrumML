@@ -4,6 +4,7 @@ use std::process::exit;
 
 use crate::data_frame::{data_frame::*, data_type::DataType};
 use rand::random;
+use sprs::DenseVector;
 
 use crate::{file_handling::read_from::read_csv, neural_networks::neural_network::OutputMap, trait_definition::MLalgo, data_frame::data_type::print_at_index};
 #[cfg(test)]
@@ -72,45 +73,56 @@ fn sin_validation() -> Result<(), Box<dyn std::error::Error>> {
         _ => panic!("no wayyyyy!"),
     };
 
-    let root = BitMapBackend::new("scatter_plot.png", (800, 600)).into_drawing_area();
-    root.fill(&WHITE)?;
+    
 
-    let mut chart = ChartBuilder::on(&root)
-        .caption("Scatter Plot", ("Arial", 20))
-        .x_label_area_size(40)
-        .y_label_area_size(40)
-        .build_cartesian_2d(0.0..9.0, -1.0..1.0)?;
-
-
-    let mut neural_net = NeuralNet::new(&df, vec![1], vec![16, 16, 16],
-        vec![ActivationFunction::Tanh, ActivationFunction::Tanh, ActivationFunction::Tanh, ActivationFunction::Tanh], CostFunction::MSE,
+    let mut neural_net = NeuralNet::new(&df, vec![1], vec![64],
+        vec![ActivationFunction::Tanh ,ActivationFunction::Tanh], CostFunction::MSE,
         -0.001, OutputMap::ArgMax, 1);
 
-    neural_net.set_bias_clip_value(1000.0);
-    neural_net.set_weight_clip_value(1000.0);
+    neural_net.set_bias_clip_value(1.0);
+    neural_net.set_weight_clip_value(1.0);
     neural_net.xavier_weights();
     //neural_net.debug_weights();
 
-    neural_net.fit(&X_train, &y_train);
+    
 
     // neural_net.debug_activation_values();
     // neural_net.debug_biases();
     // neural_net.debug_chained_derivaives();
     // neural_net.debug_net_values();
+
+    let mut initinit = 0;
+
+    for i in 1..100 {
+        for (index, frame) in X_train.iter().enumerate() {
+            neural_net.feed_forward_back_propogate(frame, &vec![yyyy[index]]);
+
+            if (index%100 == 0) {
+                let filename = format!("dummy/scatter{:04}.png", initinit);
+                let root = BitMapBackend::new(&filename, (800, 600)).into_drawing_area();
+                root.fill(&WHITE)?;
+                let mut chart = ChartBuilder::on(&root)
+                .caption("Scatter Plot", ("Arial", 20))
+                .x_label_area_size(40)
+                .y_label_area_size(40)
+                .build_cartesian_2d(0.0..9.0, -1.0..1.0)?;
+
+                chart.draw_series(
+                    train_x.iter().zip(train_y.iter()).map(|(x, y)| {
+                        Circle::new((*x as f64, *y as f64), 2, ShapeStyle::from(&BLACK).filled())
+                    }),
+                ).map_err(|e| e.to_string());
+
+                chart.draw_series(
+                    train_x.iter().zip(train_y.iter()).map(|(x, y)| {
+                        Circle::new((*x as f64, neural_net.predict_float(&vec![*x]) as f64), 1, ShapeStyle::from(&BLUE))
+                    }),
+                ).map_err(|e| e.to_string());initinit += 1;
+            }
+            
+        }
+    }
     
-
-
-    chart.draw_series(
-        train_x.iter().zip(train_y.iter()).map(|(x, y)| {
-            Circle::new((*x as f64, *y as f64), 2, ShapeStyle::from(&BLACK).filled())
-        }),
-    ).map_err(|e| e.to_string());
-
-    chart.draw_series(
-        train_x.iter().zip(train_y.iter()).map(|(x, y)| {
-            Circle::new((*x as f64, neural_net.predict_float(&vec![*x]) as f64), 1, ShapeStyle::from(&BLUE))
-        }),
-    ).map_err(|e| e.to_string());
     
     Ok(())
 }
