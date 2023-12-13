@@ -39,32 +39,14 @@ pub enum ActivationFunction {
 }
 
 
-//This is the trait implemented for all the functions, for example `ActivationFunction`, etc.....
+//This is the first trait that needs to be implemented fif you are creating your own activation function, the second trait is 'DerivativeValueAt'.
 pub trait functionValueAt {
     fn function_at(&self, x: f32) -> f32;
 }
 
-//This is the trait implemented for all the functions that can be differentiated(or approximated), for example `ActivationFunction`, etc.....
+//This is the second trait that neds to be implemented for a custom activation function, the first one is 'FunctionValueAt'
 pub trait DerivativeValueAt {
     fn derivative_at(&self, x: f32) -> f32;
-}
-
-
-fn max_with_zero(x : f32) -> f32 {
-    if x > 0.0 {x} else {0.0}
-}
-
-fn tanh(x : f32) -> f32 { 
-    let plus = E.powf(x); 
-    let minus = E.powf(-x); 
-    (plus - minus)/(plus + minus)
-}//bad naming cause i want to shoot myself in the foot.
-
-static mut LEAKY : f32 = 0.01_f32;
-///Change the `Leaky` value in `ActivationFunction::LeakyReLU`.
-pub fn set_leaky_value(value : f32) {
-    assert!(value > 0.0 && value < 1.0 , "The input value must be between 0.0 and 1.0 exclusively");
-    unsafe { LEAKY = value };
 }
 
 
@@ -102,6 +84,29 @@ impl DerivativeValueAt for ActivationFunction {
     }
 
 }
+
+
+///////////////////////////////
+///HELPER FUNCTIONS
+///////////////////////////////
+
+fn max_with_zero(x : f32) -> f32 {
+    if x > 0.0 {x} else {0.0}
+}
+
+fn tanh(x : f32) -> f32 { 
+    let plus = E.powf(x); 
+    let minus = E.powf(-x); 
+    (plus - minus)/(plus + minus)
+}//bad naming cause i want to shoot myself in the foot.
+
+static mut LEAKY : f32 = 0.01_f32;
+///Change the `Leaky` value in `ActivationFunction::LeakyReLU`.
+pub fn set_leaky_value(value : f32) {
+    assert!(value > 0.0 && value < 1.0 , "The input value must be between 0.0 and 1.0 exclusively");
+    unsafe { LEAKY = value };
+}
+
 
 
 #[derive(Clone)]
@@ -240,6 +245,7 @@ impl OutputMap {
 }
 
 ///All the types that are possible for the output in NeuralNets.
+//{-PRESENTLY NOT BEING USED-}
 pub enum OutputCanBe {
     ///For single continuous targets.
     Float(f32),
@@ -255,7 +261,7 @@ pub enum OutputCanBe {
 
 //*******************************************************
 //*******************************************************
-pub struct NeuralNet {
+pub struct NeuralNet<T> {
         ///the number of features and the number of classes.
     in_out_size: (usize, usize),
     ///the net values before applying the activation fumction over them.
@@ -279,7 +285,8 @@ pub struct NeuralNet {
         ///length: number of hidden layers + 1;
     bias_vectors: Vec<Vec<f32>>,
         ///the activation function, a.k.a. transfer function.
-    pub activation_function: Vec<ActivationFunction>,
+        /// You can create your own activation functions just by implementing 
+    pub activation_function: Vec<T>,
         ///Learning step factor
     pub learning_step: f32,
         ///the cost function which we use to train the data using back propogation.
@@ -295,37 +302,42 @@ pub struct NeuralNet {
         ///The output map that is needed to be used to calculate how the output is calculated.
     output_map: OutputMap,
         ///This tells us when to stop the back-propogation.
-    pub smallest_change : f32,
+    pub least_cost : f32,
         ///clipping values for weights and biases, these are set to f32::MAX in the begginning so you do not have any kind of control for growth, use "set_weight_clip_value()" to change this
         ///and this considers the absolute value, so the weights and biases will be clipped based on the magnitudes    
     pub weight_clipping_value : f32,
     pub bias_clipping_value : f32,
+        ///number of epoches, can be changed with the method "set_epoch_value()"
+    pub epoch_value : usize,
 }
 
 
 /////////////////////////////////////////
 /////////////////////////////////////////
-impl NeuralNet {
-    
+impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
 
-    ///* CREATE A NEW `NeuralNet` OBJECT.
+
+    ///* Create a new `NeuralNet` object.
     /// # Arguments
-
+    ///
     ///* data_frame : a reference to the data frame object.
     ///* target_class : the index of the ground truth values in the DataFrame.(only the first element will be considered if your target is a )
     ///* layer_widths : takes a vector of values which represent the number of neurons in each hidden layer.
     /// ```
     /// // For example a `vec![8,8]` creates two hidden layers with 8 neurons each
     /// ```
-    ///* activation_function : takes a Activation function type for example `ActivationFunctions::Sigmoid`
-    ///* learning_step : how fast or slow the values get changed for 
-    pub fn new( data_frame: &DataFrame, 
-                target_class: Vec<usize>, 
-                layer_widths: Vec<usize>, 
-                activation_function: Vec<ActivationFunction>, 
-                cost_function : CostFunction, 
-                learning_step: f32, 
-                output_map : OutputMap, 
+    ///* activation_function : takes a Activation function type for example `ActivationFunctions::Sigmoid` (NOTE : Any 
+    /// type which implements the traits "FunctionValueAt" and "DerivativeValueAt")
+    ///* learning_step : how fast or slow the values get updated in the backpropogation, while fitting
+    ///* output_map : ignored for float targets, for Categorical and String targets you can choose btween "ArgMax" and "SoftMax" while outputting the values.
+    ///* input_size : the number of input features for the present model.(this can be automatically set, will b done in the feature versions).
+    pub fn new( data_frame: &DataFrame,
+                target_class: Vec<usize>,
+                layer_widths: Vec<usize>,
+                activation_function: Vec<T>,
+                cost_function : CostFunction,
+                learning_step: f32,
+                output_map : OutputMap,
                 input_size : usize ) -> Self {
 
         assert!(layer_widths.len() != 0, "Cannot initiate with no hidden layers.");
@@ -335,16 +347,19 @@ impl NeuralNet {
         let mut count = 0;
         let mut target_type: DataType;
 
-        assert!(layer_widths.len()+1 == activation_function.len(), "You need to provide the activation fumction for all the hidden nodes and also the ouput node, if you do not want give any activation function, just give itActivationFunction::Linear");
-
-
-        //the type of data that has to be predicted.
-        let output_nodes_here : usize = match &data_frame.data[target_class[0]] {
+        assert!(layer_widths.len()+1 == activation_function.len(),
+            "You need to provide the activation fumction for all the hidden nodes and also the ouput node, 
+            if you do not want give any activation function, just give itActivationFunction::Linear");
+        
+        let output_nodes_here : usize;
+        
+        match &data_frame.data[target_class[0]] {
             ///For training on string types, the number of outputs will be the number of unique tokens is the target column.
             DataType::Strings(temp) => {
                 temp.iter().for_each(|x| if (!map_n_counter.contains_key(x)) {map_n_counter.insert(x.to_owned(), count);});
                 target_type = DataType::Strings(vec![]);
-                map_n_counter.len()
+                map_n_counter.len();
+                output_nodes_here = 1;
             },
             DataType::Floats(temp) => {
                 ///To train on floats we are going to first assert all the indices that are given in the target index vector 
@@ -354,11 +369,12 @@ impl NeuralNet {
                         _ => panic!("All the target indexes should be of the type DataType::Floats, here the index at : {} is not this type" , each_index),
                     }
                 }
+                //this will not be used anywhere, the Category and Float counterparts will have a major use though.
                 target_type = DataType::Floats(vec![]);
-                target_class.len()
+                output_nodes_here = target_class.len();
             },
             DataType::Category(temp) => {
-                ///To train on floats we are going to first assert all the indices that are given in the target index vector 
+                ///To train on category 
                 for each_index in target_class.iter() {
                     match data_frame.data[target_class[*each_index]] {
                         DataType::Category(_) => {},
@@ -366,7 +382,7 @@ impl NeuralNet {
                     }
                 }
                 target_type = DataType::Category(vec![]);
-                target_class.len()
+                output_nodes_here = 1;
             },
         };
 
@@ -392,7 +408,11 @@ impl NeuralNet {
         }
         Self::fill_rand_2(&mut bias_vectors);
 
-        eprintln!("WARNING: The threshold for least amount of cost is presently set to `0.1` to change it please use the method `change_minimum_cost()`");
+        eprintln!("WARNING: The default values are set for the following fields please use the 'set_<field_name>()' methods to change the respective fields
+        least_cost = 0.01
+        bias_clipping_value = NO CLIP
+        weights_clipping_value = NO CLIP
+        epoches = 50");
 
         NeuralNet {
             in_out_size: (input_size , output_nodes_here),
@@ -409,9 +429,10 @@ impl NeuralNet {
             target_type,
             target_indices: target_class, 
             predict_out : OutputCanBe::Float(0.0),
-            smallest_change : 0.1,
+            least_cost : 0.01,
             weight_clipping_value : f32::MAX,
             bias_clipping_value : f32::MAX,
+            epoch_value : 50,
         }
 
     }
@@ -420,6 +441,7 @@ impl NeuralNet {
     /// should be called before the fitting process.
     /// works better with tanh and sigmoid activation functions.
     pub fn xavier_weights(&mut self) {
+        //we can directly use this 
         for (input_index, input_node_len) in self.layer_width.iter().skip(1).enumerate() {
             for weight_node_group in self.weight_matrices[input_index].iter_mut() {
                 for node_prev_weight in weight_node_group.iter_mut() {
@@ -433,13 +455,19 @@ impl NeuralNet {
     /// should be called before the fitting process.
     /// works better with ReLU and other activation functions.
     pub fn he_weights(&mut self) {
-
+        for (input_index, input_node_len) in self.layer_width.iter().skip(1).enumerate() {
+            for weight_node_group in self.weight_matrices[input_index].iter_mut() {
+                for node_prev_weight in weight_node_group.iter_mut() {
+                    *node_prev_weight = rand::thread_rng().gen_range((-2.0 /(*input_node_len as f32).sqrt())..((2.0) / (*input_node_len as f32).sqrt()));
+                }
+            }
+        }
     }
 
 
     pub fn change_minimum_cost(&mut self, minimum_cost: f32) {
         if (minimum_cost.is_sign_negative()) {panic!("Expected a positive value here");}
-        self.smallest_change = minimum_cost;        
+        self.least_cost = minimum_cost;        
     }
 
     fn fill_rand(input : &mut Vec<Vec<Vec<f32>>>) {
@@ -470,6 +498,10 @@ impl NeuralNet {
         });
     }
 
+    //+++++++++++++++++++++++++++++
+    //DEBUG FUNCTIONS//////////////
+    //+++++++++++++++++++++++++++++
+
     ///Prints the present values of the weights to stdout, as individual matrices.
     pub fn debug_weights(&self) {
         dbg!(&self.weight_matrices);
@@ -494,6 +526,11 @@ impl NeuralNet {
         dbg!(&self.chained_derivate);
     }
 
+
+    ////////////////////////////////////
+    /// SET FUNCTIONS///////////////////
+    ////////////////////////////////////
+    
     ///Returns the number of nodes in each layer including the input and the ouput layers.
     pub fn get_layer_detes(&self) -> &Vec<usize> {
         &self.layer_width
@@ -501,13 +538,19 @@ impl NeuralNet {
 
     ///setting the weight clipping value
     pub fn set_weight_clip_value(&mut self, value : f32) {
-        self.weight_clipping_value = value;
+        self.weight_clipping_value = f32::abs(value);
     }
 
     ///setting the bias clipping value
     pub fn set_bias_clip_value(&mut self, value : f32) {
-        self.bias_clipping_value = value;
+        self.bias_clipping_value = f32::abs(value);
     }
+
+    ///setting the number of epoches
+    pub fn set_epoch_value(&mut self, value : usize) {
+        self.epoch_value = value;
+    }
+
 
     /////////////////////////////////////////////
     ///The last layer of activation gives the current active values, after this function is run once.
@@ -571,13 +614,22 @@ impl NeuralNet {
             for (prev_layer_index, weight_value) in self.weight_matrices[last_index][node_index].iter_mut().enumerate() {
                 *weight_value -= self.learning_step*(self.chained_derivate[last_index][node_index]*(self.active_values[last_index-1][prev_layer_index]));
                 if f32::abs(*weight_value) > f32::abs(self.weight_clipping_value) {
-                    *weight_value = f32::abs(self.weight_clipping_value);
+                    //we gotta preserve the sign though.
+                    if *weight_value < 0.0 {
+                        *weight_value *= -self.weight_clipping_value;
+                    } else {
+                        *weight_value = self.weight_clipping_value;
+                    }
                 }
             }
             //updating the biases(for the last layer)
             self.bias_vectors[last_index][node_index] -= self.learning_step*(self.chained_derivate[last_index][node_index]);
             if f32::abs(self.bias_vectors[last_index][node_index]) > f32::abs(self.bias_clipping_value) {
-                self.bias_vectors[last_index][node_index] = f32::abs(self.bias_clipping_value);
+                if self.bias_vectors[last_index][node_index] < 0.0 {
+                    self.bias_vectors[last_index][node_index] *= -self.bias_clipping_value;
+                } else {
+                    self.bias_vectors[last_index][node_index] *= self.bias_clipping_value;
+                }
             }
         }
 
@@ -606,12 +658,20 @@ impl NeuralNet {
                     for (weight_index, weight_value) in self.weight_matrices[layer_index][node_index].iter_mut().enumerate() {
                         *weight_value -= self.learning_step*(self.chained_derivate[layer_index][node_index]*self.active_values[layer_index-1][weight_index]);
                         if f32::abs(*weight_value) > f32::abs(self.weight_clipping_value) {
-                            *weight_value = f32::abs(self.weight_clipping_value);
+                            if *weight_value < 0.0 {
+                                *weight_value *= -self.weight_clipping_value;
+                            } else {
+                                *weight_value = self.weight_clipping_value;
+                            }
                         }
                     }
                     self.bias_vectors[layer_index][node_index] += self.learning_step*(self.chained_derivate[layer_index][node_index]);
                     if f32::abs(self.bias_vectors[layer_index][node_index]) > f32::abs(self.bias_clipping_value) {
-                        self.bias_vectors[layer_index][node_index] = f32::abs(self.bias_clipping_value);
+                        if self.bias_vectors[layer_index][node_index] < 0.0 {
+                            self.bias_vectors[layer_index][node_index] *= -self.bias_clipping_value;
+                        } else {
+                            self.bias_vectors[layer_index][node_index] *= self.bias_clipping_value;
+                        }
                     }
                 }
             }
@@ -622,12 +682,20 @@ impl NeuralNet {
             for (input_index, weight_value) in weight_values.iter_mut().enumerate() {
                 *weight_value -= self.learning_step*(input_values[input_index]*self.chained_derivate[0][node_index]);
                 if f32::abs(*weight_value) > f32::abs(self.weight_clipping_value) {
-                    *weight_value = f32::abs(self.weight_clipping_value);
+                    if *weight_value < 0.0 {
+                        *weight_value *= -self.weight_clipping_value;
+                    } else {
+                        *weight_value = self.weight_clipping_value;
+                    }
                 }
             }
             self.bias_vectors[0][node_index] -= self.learning_step*(self.chained_derivate[0][node_index]);
             if f32::abs(self.bias_vectors[0][node_index]) > f32::abs(self.bias_clipping_value) {
-                self.bias_vectors[0][node_index] = f32::abs(self.bias_clipping_value);
+                if self.bias_vectors[0][node_index] < 0.0 {
+                    self.bias_vectors[0][node_index] *= -self.bias_clipping_value;
+                } else {
+                    self.bias_vectors[0][node_index] *= self.bias_clipping_value;
+                }
             }
         }
 
@@ -639,33 +707,35 @@ impl NeuralNet {
     ///* Curve fitting on a single continuous output.
     fn fit_float(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {
         //The basic back-prop when to to stop loop.
-        
-        let mut iterated_count = 0;
 
         let ground: &Vec<f32> = match y_train {
             DataType::Floats(temp) => temp,
-            _ => panic!("This is straight-up impossible!"),
+            _ => panic!("Wrong type!"),
         };
         
         let mut present_cost: f32;
         let mut placeholder_vector = vec![0.0_f32];
-        for epoch_index in 0..100 {
+        //for each epoch in the total number of epoch values.
+        for epoch_index in 0..self.epoch_value {
             let mut present_cost_max = f32::MIN;
+            // for each data point, backpropogate and update the weights.
             for (index, present_theta) in X_train.iter().enumerate() {
                 //setting the ground truth value for this sample.
                 placeholder_vector[0] = ground[index];
                 //this function first feeds forward, then back-propogates.
                 present_cost = self.feed_forward_back_propogate(present_theta, &placeholder_vector);
-
+                //updating the present cost if it is the biggest till now in the present epoch.
                 if (present_cost > present_cost_max) {
                     present_cost_max = present_cost;
                 }
             }
-            println!("Epoch: [{:03}/100], Maximum cost: {:010}", epoch_index+1, present_cost_max);
-        }
 
-        if (iterated_count < X_train.len()) {
-            eprintln!("The threshold value reached before training the whole data set, by about {} samples", X_train.len()-iterated_count);
+            println!("Epoch: [{}/{}], Maximum cost: {}", epoch_index+1, self.epoch_value, present_cost_max);
+            
+            if (present_cost_max < self.least_cost) {
+                println!("The least cost value of {} is reached in just {} epoches", self.least_cost, epoch_index+1);
+                break;
+            }
         }
 
     }
@@ -676,11 +746,46 @@ impl NeuralNet {
         todo!();
     }
 
-
+    /// This is called when the target is of the type 'DataType::Category'
+    /// use the cost functions : "CostFunction::BCE" and "CostFunction::CCE" for categorical targets.
+    /// there will be a warning if tried to train with BCE but there are more than 
     fn fit_category(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {
-        todo!();
+        //The basic back-prop when to to stop loop.
+
+        let ground: &Vec<u8> = match y_train {
+            DataType::Category(temp) => temp,
+            _ => panic!("Wrong type!"),
+        };
+
+        let mut present_cost: f32;
+        let mut placeholder_vector = vec![0.0_f32];
+        //for each epoch in the total number of epoch values.
+        for epoch_index in 0..self.epoch_value {
+            let mut present_cost_max = f32::MIN;
+            // for each data point, backpropogate and update the weights.
+            for (index, present_theta) in X_train.iter().enumerate() {
+                //setting the ground truth value for this sample.
+                placeholder_vector[0] = ground[index] as f32;
+                //this function first feeds forward, then back-propogates.
+                present_cost = self.feed_forward_back_propogate(present_theta, &placeholder_vector);
+                //updating the present cost if it is the biggest till now in the present epoch.
+                if (present_cost > present_cost_max) {
+                    present_cost_max = present_cost;
+                }
+            }
+
+            println!("Epoch: [{}/{}], Maximum cost: {}", epoch_index+1, self.epoch_value, present_cost_max);
+            
+            if (present_cost_max < self.least_cost) {
+                println!("The least cost value of {} is reached in just {} epoches", self.least_cost, epoch_index+1);
+                break;
+            }
+        }
+
     }
     
+    
+
     //Multiple curve fitting.
     pub fn fit_multi_task_float(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {
         todo!();
@@ -704,7 +809,7 @@ impl NeuralNet {
     fn predict_multi_task_float() {
         todo!();
     }
-    
+
     fn predict(&self, point : &Vec<f32>) -> ReturnType {
         todo!();
     }
@@ -712,7 +817,7 @@ impl NeuralNet {
 }
 
 
-impl MLalgo for NeuralNet {
+impl<T : functionValueAt + DerivativeValueAt> MLalgo for NeuralNet<T> {
     ///The fit function automatically changes the type of algorithm used based on the target type.
     fn fit(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {
         let start_time = std::time::Instant::now();

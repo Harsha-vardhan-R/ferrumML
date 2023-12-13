@@ -1,15 +1,7 @@
-
-
-use std::process::exit;
-
 use crate::data_frame::{data_frame::*, data_type::DataType};
 use rand::random;
-use sprs::DenseVector;
-
-use crate::{file_handling::read_from::read_csv, neural_networks::neural_network::OutputMap, trait_definition::MLalgo, data_frame::data_type::print_at_index};
-#[cfg(test)]
-use crate::neural_networks::neural_network::set_leaky_value;
-use super::neural_network::{ActivationFunction, NeuralNet, CostFunction};
+use crate::{file_handling::read_from::read_csv, neural_networks::neural_network::OutputMap, trait_definition::MLalgo};
+use super::neural_network::{ActivationFunction, NeuralNet, CostFunction, set_leaky_value};
 use plotters::prelude::*;
 
 
@@ -57,35 +49,43 @@ fn sin_validation() -> Result<(), Box<dyn std::error::Error>> {
     let mut train_x = vec![0.0_f32; 1000];
     let mut train_y = vec![0.0_f32; 1000];
     for i in 0..1000 {
-        train_x[i] = (random::<f32>())*8.0;
+        train_x[i] = (random::<f32>())*16.0;
         train_y[i] = f32::sin(train_x[i]);
     }
 
     let mut df  = DataFrame::new();
     df.new_column(DataType::Floats(train_x.clone()), 0);
     df.new_column(DataType::Floats(train_y.clone()), 1);
-    df.describe();
-    df.head();
+    df.set_headers(vec!["RadianValues", "SinValues"]);
+    //df.describe();
+    //df.head();
+    
 
     let (X_train, y_train, X_test, y_test ) = df.train_test_split(0.0, 1, false);
     let yyyy = match y_train {
         DataType::Floats(ref temp) => temp,
-        _ => panic!("no wayyyyy!"),
+        _ => panic!("ain't no way!!!"),
     };
 
     
 
-    let mut neural_net = NeuralNet::new(&df, vec![1], vec![64],
-        vec![ActivationFunction::Tanh ,ActivationFunction::Tanh], CostFunction::MSE,
-        -0.001, OutputMap::ArgMax, 1);
+    let mut neural_net = NeuralNet::new(
+        &df, 
+        vec![1],
+        vec![128, 128, 128],
+        vec![ActivationFunction::Tanh, ActivationFunction::Tanh,  ActivationFunction::Tanh, ActivationFunction::Tanh], 
+        CostFunction::MSE,
+        -0.00008, 
+        OutputMap::ArgMax, 
+        1);
 
-    neural_net.set_bias_clip_value(1.0);
-    neural_net.set_weight_clip_value(1.0);
-    neural_net.xavier_weights();
+    // neural_net.set_bias_clip_value(6.);
+    // neural_net.set_weight_clip_value(1.0);
+    neural_net.he_weights();
     //neural_net.debug_weights();
+    set_leaky_value(0.3);
 
     
-
     // neural_net.debug_activation_values();
     // neural_net.debug_biases();
     // neural_net.debug_chained_derivaives();
@@ -93,11 +93,11 @@ fn sin_validation() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut initinit = 0;
 
-    for i in 1..100 {
+    for i in 1..250 {
         for (index, frame) in X_train.iter().enumerate() {
             neural_net.feed_forward_back_propogate(frame, &vec![yyyy[index]]);
 
-            if (index%100 == 0) {
+            if (index%250 == 0) {
                 let filename = format!("dummy/scatter{:04}.png", initinit);
                 let root = BitMapBackend::new(&filename, (800, 600)).into_drawing_area();
                 root.fill(&WHITE)?;
@@ -105,7 +105,7 @@ fn sin_validation() -> Result<(), Box<dyn std::error::Error>> {
                 .caption("Scatter Plot", ("Arial", 20))
                 .x_label_area_size(40)
                 .y_label_area_size(40)
-                .build_cartesian_2d(0.0..9.0, -1.0..1.0)?;
+                .build_cartesian_2d(0.0..18.0, -1.0..1.0)?;
 
                 chart.draw_series(
                     train_x.iter().zip(train_y.iter()).map(|(x, y)| {
@@ -125,5 +125,11 @@ fn sin_validation() -> Result<(), Box<dyn std::error::Error>> {
     
     
     Ok(())
+}
+
+#[test]
+
+fn useless_test() {
+    println!("Hello, World!");
 }
 
