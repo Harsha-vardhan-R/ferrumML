@@ -96,8 +96,8 @@ impl ConvolutionKernelBuilder {
         // Building the kernels based on dimensions.
         match self {
             ConvolutionKernelBuilder::Identity => {
-                out_vec = vec![0.0 ; (dimensions*dimensions) as usize];
-                out_vec[((dimensions*dimensions)/2) as usize] = 1.0;
+                out_vec = vec![0.0 ; dimensions as usize*dimensions as usize];
+                out_vec[(dimensions as usize*dimensions as usize)/2] = 1.0;
                 normal += 1.0;
             },
             ConvolutionKernelBuilder::GaussianBlur(sigma) => {
@@ -169,7 +169,10 @@ impl ConvolutionKernelBuilder {
                 } 
                 out_vec[(dimensions as usize*dimensions as usize)/2] = 0.0_f32;
             },
-            ConvolutionKernelBuilder::UnsharpMask => todo!(),
+            ConvolutionKernelBuilder::UnsharpMask => {
+                out_vec = vec![-1.0 ; dimensions as usize * dimensions as usize];
+                out_vec[(dimensions as usize*dimensions as usize)/2] = dimensions as f32 * dimensions as f32 - 1.0_f32;
+            },
         }
 
         return Kernel(out_vec, dimensions.into(), normal);

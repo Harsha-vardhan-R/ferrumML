@@ -8,7 +8,7 @@
 
 
 use crate::feature_extraction::tokenisation::special_iterator::is_special;
-use std::{collections::{HashMap, hash_map::Entry}};
+use std::collections::{HashMap, hash_map::Entry};
 use sprs::CsVec;
 use crate::data_frame::{data_type::DataType, data_frame::DataFrame};
 use rust_stemmers::{Algorithm , Stemmer};
@@ -43,6 +43,7 @@ pub mod special_iterator {
 
 
     ///An enum that stores different types of special iterator types.
+    // TODO : Partial words as tokens.
     #[derive(Debug)]
     pub enum SpecialStrings<'a> {///treats all the speacial charecters as different.
         DivideSpecial(SpecialStr<'a>),///treats consecutive special characters as a single token.
