@@ -1,4 +1,4 @@
-use crate::data_frame::{data_frame::*, data_type::DataType};
+use crate::{data_frame::{data_frame::*, data_type::DataType}, neural_networks::neural_network::{functionValueAt, DerivativeValueAt}};
 use rand::random;
 use crate::{file_handling::read_from::read_csv, neural_networks::neural_network::OutputMap, trait_definition::MLalgo};
 use super::neural_network::{ActivationFunction, NeuralNet, CostFunction, set_leaky_value};
@@ -11,9 +11,9 @@ fn activation_function() {
     let temp = ActivationFunction::Sigmoid;
     //set_leaky_value(0.5);
 
-    // for i in -10..10 {
-    //     println!("{:?} | {:?}", temp.activation_function_at(i as f32) , temp.derivative_at(i as f32));
-    // }
+    for i in -10..10 {
+        println!("{:010} | {:010}", temp.function_at(i as f32) , temp.derivative_at(i as f32));
+    }
 }
 
 
@@ -123,12 +123,10 @@ fn sin_validation() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     
-    
     Ok(())
 }
 
 #[test]
-
 fn useless_test() {
     println!("Hello, World!");
 }

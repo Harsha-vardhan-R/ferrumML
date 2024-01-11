@@ -39,12 +39,12 @@ pub enum ActivationFunction {
 }
 
 
-//This is the first trait that needs to be implemented fif you are creating your own activation function, the second trait is 'DerivativeValueAt'.
+/// This is the first trait that needs to be implemented fif you are creating your own activation function, the second trait is 'DerivativeValueAt'.
 pub trait functionValueAt {
     fn function_at(&self, x: f32) -> f32;
 }
 
-//This is the second trait that neds to be implemented for a custom activation function, the first one is 'FunctionValueAt'
+/// This is the second trait that neds to be implemented for a custom activation function, the first one is 'FunctionValueAt'
 pub trait DerivativeValueAt {
     fn derivative_at(&self, x: f32) -> f32;
 }
@@ -353,9 +353,11 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
         
         let output_nodes_here : usize;
         
+        //this is actually kind of fishy, cause we are deciding the what to do based on the first value, need to change.
         match &data_frame.data[target_class[0]] {
             ///For training on string types, the number of outputs will be the number of unique tokens is the target column.
             DataType::Strings(temp) => {
+                if target_class.len() != 1 {panic!("String targets cannot be more than one")};
                 temp.iter().for_each(|x| if (!map_n_counter.contains_key(x)) {map_n_counter.insert(x.to_owned(), count);});
                 target_type = DataType::Strings(vec![]);
                 map_n_counter.len();
@@ -374,6 +376,7 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
                 output_nodes_here = target_class.len();
             },
             DataType::Category(temp) => {
+                if target_class.len() != 1 {panic!("Category targets cannot be more than one")};
                 ///To train on category 
                 for each_index in target_class.iter() {
                     match data_frame.data[target_class[*each_index]] {
@@ -706,8 +709,6 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
     //Basically curve fitting.
     ///* Curve fitting on a single continuous output.
     fn fit_float(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {
-        //The basic back-prop when to to stop loop.
-
         let ground: &Vec<f32> = match y_train {
             DataType::Floats(temp) => temp,
             _ => panic!("Wrong type!"),
@@ -731,7 +732,7 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
             }
 
             println!("Epoch: [{}/{}], Maximum cost: {}", epoch_index+1, self.epoch_value, present_cost_max);
-            
+
             if (present_cost_max < self.least_cost) {
                 println!("The least cost value of {} is reached in just {} epoches", self.least_cost, epoch_index+1);
                 break;
@@ -739,8 +740,8 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
         }
 
     }
-   
-   
+
+
 
     fn fit_string(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {
         todo!();
@@ -775,7 +776,7 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
             }
 
             println!("Epoch: [{}/{}], Maximum cost: {}", epoch_index+1, self.epoch_value, present_cost_max);
-            
+
             if (present_cost_max < self.least_cost) {
                 println!("The least cost value of {} is reached in just {} epoches", self.least_cost, epoch_index+1);
                 break;
@@ -783,12 +784,36 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
         }
 
     }
-    
-    
+
+
 
     //Multiple curve fitting.
-    pub fn fit_multi_task_float(&mut self, X_train : &Vec<Vec<f32>> , y_train : &DataType) {
-        todo!();
+    pub fn fit_multi_task_float(&mut self, X_train : &Vec<Vec<f32>> , y_train : &Vec<Vec<f32>>) {
+
+        //the y_train is going to store the targets in the form of columns, which we will need to dereference to use them.
+        let mut present_cost: f32;
+        let mut placeholder_vector = vec![0.0_f32; self.target_indices.len()];
+        //for each epoch in the total number of epoch values.
+        for epoch_index in 0..self.epoch_value {
+            let mut present_cost_max = f32::MIN;
+            // for each data point, backpropogate and update the weights.
+            for (index, present_theta) in X_train.iter().enumerate() {
+                //setting the ground truth value for this sample.
+                //this function first feeds forward, then back-propogates.
+                present_cost = self.feed_forward_back_propogate(present_theta, &y_train[index]);
+                //updating the present cost if it is the biggest till now in the present epoch.
+                if (present_cost > present_cost_max) {
+                    present_cost_max = present_cost;
+                }
+            }
+
+            println!("Epoch: [{}/{}], Maximum cost: {}", epoch_index+1, self.epoch_value, present_cost_max);
+
+            if (present_cost_max < self.least_cost) {
+                println!("The least cost value of {} is reached in just {} epoches", self.least_cost, epoch_index+1);
+                break;
+            }
+        }
     }
 
     fn predict_string() {
@@ -806,8 +831,8 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
         todo!();
     }
 
-    fn predict_multi_task_float() {
-        todo!();
+    fn predict_multi_task_float(&mut self, input_values: &Vec<f32>) -> &Vec<f32> {
+        return self.feed_forward(input_values);
     }
 
     fn predict(&self, point : &Vec<f32>) -> ReturnType {
@@ -830,7 +855,7 @@ impl<T : functionValueAt + DerivativeValueAt> MLalgo for NeuralNet<T> {
             },
             DataType::Category(_) => self.fit_category(X_train, y_train),
         }
-        eprintln!("Time required to train this : {:?}", start_time.elapsed())
+        eprintln!("Time required to train : {:?}", start_time.elapsed())
     }
 }
 

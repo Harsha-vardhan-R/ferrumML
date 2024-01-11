@@ -14,7 +14,9 @@ rand = "*"
 rayon = "*"
 sprs = "*"
 rust-stemmers = "*"
-
+wgpu = "*"
+env_logger = "*"
+image = "*"
 
 
 [profile.dev]

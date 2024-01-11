@@ -15,6 +15,8 @@ pub mod trait_definition;
 pub mod feature_extraction {
     pub mod tokenisation;
     mod tokenisation_test;
+    pub mod image_handling;
+    mod image_handling_tests;
 }
 
 pub mod evaluation {

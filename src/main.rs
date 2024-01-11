@@ -55,6 +55,9 @@ pub mod clustering {
 pub mod neural_networks {
     pub mod neural_network;
     mod neural_network_test;
+    pub mod convolution;
+    mod convolution_test;
+    pub mod network_pipe;
 }
 
 pub mod supervised {
