@@ -10,7 +10,18 @@ pub mod n_dimen {
     pub mod n_dimen;
 }
 
+pub mod neural_networks {
+    pub mod neural_network;
+    mod neural_network_test;
+    pub mod convolution_kernel;
+    mod convolution_test;
+    pub mod network_pipe;
+    pub mod convolution_architecture;
+}
+
 pub mod trait_definition;
+pub mod vulcan_boilerplate;
+mod vulcan_test;
 
 pub mod feature_extraction {
     pub mod tokenisation;

@@ -1,4 +1,4 @@
-use crate::{data_frame::{data_frame::*, data_type::DataType}, neural_networks::neural_network::{functionValueAt, DerivativeValueAt}};
+use crate::{data_frame::{data_frame::*, data_type::{DataType, print_at_index}}, neural_networks::neural_network::{functionValueAt, DerivativeValueAt}};
 use rand::random;
 use crate::{file_handling::read_from::read_csv, neural_networks::neural_network::OutputMap, trait_definition::MLalgo};
 use super::neural_network::{ActivationFunction, NeuralNet, CostFunction, set_leaky_value};
@@ -24,10 +24,11 @@ fn new_Struct() {
     temp.remove_columns(&vec![2, 4]);
     temp.normalize();
     temp.describe();
-    let activation_function = vec![ActivationFunction::ReLu,  ActivationFunction::ReLu , ActivationFunction::ReLu];
-    let mut neural_net = NeuralNet::new(&temp, vec![6], vec![4, 4], activation_function, super::neural_network::CostFunction::MSE, -0.001, OutputMap::SoftMax, 6);
+    let activation_function = vec![ActivationFunction::Tanh,  ActivationFunction::Tanh , ActivationFunction::Tanh];
+    let mut neural_net = NeuralNet::new(&temp, vec![6], vec![64, 64], activation_function, super::neural_network::CostFunction::MSE, -0.001, OutputMap::SoftMax, 6);
     
     // let mut hava = neural_net;
+    neural_net.xavier_weights();
     
     // println!("{:?}", hava.feed_forward(&vec![5.1,3.5]));
     // hava.debug_biases();
@@ -37,11 +38,35 @@ fn new_Struct() {
     let (X_train, y_train, X_test, y_test) = temp.train_test_split(0.8, 6, false);
     neural_net.fit(&X_train, &y_train);
 
-    // for (index, value) in X_test.iter().enumerate() {
-    //     print!("predicted value : {:?}, actual value : ", neural_net.predict_float(value));
-    //     y_test.print_at(index);
-    //     println!();
-    // }
+    let filename = format!("dummy/scatter____.png");
+    let root = BitMapBackend::new(&filename, (800, 600)).into_drawing_area();
+    root.fill(&WHITE).unwrap();
+    let mut chart = ChartBuilder::on(&root)
+        .caption("Scatter Plot", ("Arial", 20))
+        .x_label_area_size(40)
+        .y_label_area_size(40)
+        .build_cartesian_2d(0.0..1.0, 0.0..1.0).unwrap();
+
+    let mut predict_vec = vec![0.0_f32; X_test.len()];
+
+    for (index, value) in X_test.iter().enumerate() {
+        let value = neural_net.predict_float(value);
+        predict_vec[index] = value;
+        print!("predicted value : {:?}, actual value : ", value);
+        y_test.print_at(index);
+        println!();
+    }
+
+
+    if let DataType::Floats(ydata) = y_test {
+        chart.draw_series(
+        ydata.iter().zip(predict_vec.iter()).map(|(x, y)| {
+            Circle::new((*x as f64, *y as f64), 2, ShapeStyle::from(&BLACK).filled())
+        }),
+        ).map_err(|e| e.to_string());
+    };
+
+    
 }
 
 #[test]

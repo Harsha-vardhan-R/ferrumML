@@ -14,10 +14,9 @@ rand = "*"
 rayon = "*"
 sprs = "*"
 rust-stemmers = "*"
-wgpu = "*"
 env_logger = "*"
 image = "*"
-
+ash = "*"
 
 [profile.dev]
 opt-level = 3

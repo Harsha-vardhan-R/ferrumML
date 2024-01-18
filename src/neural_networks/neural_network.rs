@@ -309,6 +309,9 @@ pub struct NeuralNet<T> {
     pub bias_clipping_value : f32,
         ///number of epoches, can be changed with the method "set_epoch_value()"
     pub epoch_value : usize,
+        /// batch_load_multiple : the number of batches that are loaded at a time from the RAM to VRAM,
+        /// try to have this value as high as possible without running out of memory, to get the best results.
+    pub batch_load_multiple : u32,
 }
 
 
@@ -411,11 +414,12 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
         }
         Self::fill_rand_2(&mut bias_vectors);
 
-        eprintln!("WARNING: The default values are set for the following fields please use the 'set_<field_name>()' methods to change the respective fields
+        eprintln!("\nWARNING: The default values are set for the following fields please use the 'set_<field_name>()' methods to change the respective fields
         least_cost = 0.01
         bias_clipping_value = NO CLIP
         weights_clipping_value = NO CLIP
-        epoches = 50");
+        epoches = 50
+        batch_load_multiple = 100\n");
 
         NeuralNet {
             in_out_size: (input_size , output_nodes_here),
@@ -436,6 +440,7 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
             weight_clipping_value : f32::MAX,
             bias_clipping_value : f32::MAX,
             epoch_value : 50,
+            batch_load_multiple : 100,
         }
 
     }
@@ -739,6 +744,14 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
             }
         }
 
+    }
+
+
+    /// Fits the floating points based on the GPU using vulcan API.
+    /// Returns the cost at the input node, will be used for pipes.
+    pub fn fit_float_gpu() {
+
+        
     }
 
 

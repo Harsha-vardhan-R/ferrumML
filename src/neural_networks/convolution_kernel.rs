@@ -9,7 +9,6 @@
 
 use std::{f32::consts::PI, fmt::{Debug, write}};
 
-use crate::neural_networks::neural_network::ActivationFunction;
 use super::neural_network::functionValueAt;
 
 
@@ -190,30 +189,3 @@ pub enum Pool {
 }
 
 
-/// Struct that actually stores the details about the user defined architecture.
-pub struct ConvolutionArchitecture<U : functionValueAt> {
-    architecture : Vec<(Vec<Kernel>, U, Option<Pool>, (u32, u32, u32))>,
-    /// The layer width stores the number of kernels for each layer.
-    /// by the end of any layer the dimensionality of the matrix is going to be : 
-    layer_widths : Vec<u32>,
-    workgroup_size : (u32, u32, u32),
-    batch_Size : u32,
-}
-
-
-
-impl<U : functionValueAt> ConvolutionArchitecture<U> {
-
-    /// - Architecture defines the architecture of the whole onvolution layers.
-    /// * User needs to provide them in the form of `Vec<(Vec<Kernel>, U, Option<Pool>)>` for each layer from the beginning,
-    /// where `U` should implement the trait`functionValueAt`, if the user want to use a non linearity form the built-in library,
-    /// they can directly use the `ActivationFunction` which implements `functionValueAt`.
-    /// you need to provide the input size for each layer in there.
-    /// 
-    /// The first field of the tuple is a Vec<Kernel>, because we can use multiple kernels for a single layer, to 
-    /// extract different features from the image(and vec<Vec<f32>>)
-    pub fn new(architecture : Vec<(Vec<Kernel>, U, Option<Pool>)>) {
-        
-        // first need to verify the architecture by reading 
-    }
-}
