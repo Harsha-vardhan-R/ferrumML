@@ -309,9 +309,10 @@ pub struct NeuralNet<T> {
     pub bias_clipping_value : f32,
         ///number of epoches, can be changed with the method "set_epoch_value()"
     pub epoch_value : usize,
-        /// batch_load_multiple : the number of batches that are loaded at a time from the RAM to VRAM,
-        /// try to have this value as high as possible without running out of memory, to get the best results.
-    pub batch_load_multiple : u32,
+        /// the number of threads that are going to get spawned while training.
+        /// please keep in mind havinig more number of threads than the number of cpu's is useless unless 
+        /// there is some cpu technology like Intel's Hyperthreading.
+    thread_number : u8,
 }
 
 
@@ -419,7 +420,7 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
         bias_clipping_value = NO CLIP
         weights_clipping_value = NO CLIP
         epoches = 50
-        batch_load_multiple = 100\n");
+        thread_number = 1\n");
 
         NeuralNet {
             in_out_size: (input_size , output_nodes_here),
@@ -440,7 +441,7 @@ impl<T : functionValueAt + DerivativeValueAt> NeuralNet<T> {
             weight_clipping_value : f32::MAX,
             bias_clipping_value : f32::MAX,
             epoch_value : 50,
-            batch_load_multiple : 100,
+            thread_number : 1,
         }
 
     }
